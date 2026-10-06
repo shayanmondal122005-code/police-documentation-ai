@@ -1,0 +1,77 @@
+{
+  "raw_transcript": "आप अपना नाम और क्या हुआ बताइए।\nमेरा नाम सुनील यादव है। कल रात मेरा फोन चोरी हो गया। राहुल ने मेरा फोन ले लिया। मुझे लगता है कि राहुल वहाँ था।\nआप कितने बजे वहाँ गए थे?\nहम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।\nकोई गवाह है?\nमैंने एक सफेद मोटरसाइकिल देखी, नंबर UP 65 AB 1234 था, पर चेहरा साफ नहीं दिखा।\nअसल में हम आठ बजे के आसपास पहुँचे थे। दुकान के बाहर कैमरा लगा है।\nमैंने सुना है कि राहुल का भाई भी वहीं था।\nठीक है, सीसीटीवी फुटेज हम देखेंगे। आपका नंबर 98765 43210 लिखवाइए।",
+  "segments": [
+    {
+      "speaker": "Speaker 1",
+      "text": "आप अपना नाम और क्या हुआ बताइए।",
+      "start_time": "00:00",
+      "end_time": "00:06",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "मेरा नाम सुनील यादव है। कल रात मेरा फोन चोरी हो गया। राहुल ने मेरा फोन ले लिया। मुझे लगता है कि राहुल वहाँ था।",
+      "start_time": "00:06",
+      "end_time": "00:19",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 1",
+      "text": "आप कितने बजे वहाँ गए थे?",
+      "start_time": "00:19",
+      "end_time": "00:23",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+      "start_time": "00:23",
+      "end_time": "00:30",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 1",
+      "text": "कोई गवाह है?",
+      "start_time": "00:30",
+      "end_time": "00:33",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 3",
+      "text": "मैंने एक सफेद मोटरसाइकिल देखी, नंबर UP 65 AB 1234 था, पर चेहरा साफ नहीं दिखा।",
+      "start_time": "00:33",
+      "end_time": "00:46",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "असल में हम आठ बजे के आसपास पहुँचे थे। दुकान के बाहर कैमरा लगा है।",
+      "start_time": "00:46",
+      "end_time": "00:57",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 3",
+      "text": "मैंने सुना है कि राहुल का भाई भी वहीं था।",
+      "start_time": "00:57",
+      "end_time": "01:04",
+      "language": null
+    },
+    {
+      "speaker": "Speaker 1",
+      "text": "ठीक है, सीसीटीवी फुटेज हम देखेंगे। आपका नंबर 98765 43210 लिखवाइए।",
+      "start_time": "01:04",
+      "end_time": "01:15",
+      "language": null
+    }
+  ],
+  "language_notes": "Fictional demo transcript: Hindi with one Bhojpuri sentence and English letters in a registration number.",
+  "uncertainties": [
+    "Speaker 3's name is not stated in the recording."
+  ],
+  "timestamp_source": "model_reported",
+  "speakers_available": true,
+  "engine": "mock",
+  "model": null,
+  "warnings": []
+}

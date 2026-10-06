@@ -1,0 +1,41 @@
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Recordings and generated output must never be committed
+*.mp3
+*.wav
+*.m4a
+*.mp4
+*.mpeg
+*.webm
+*.log
+tmp/
+temp/
+
+# Local tooling
+.claude/

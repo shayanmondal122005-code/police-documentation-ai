@@ -1,0 +1,394 @@
+{
+  "purpose": {
+    "stated_purpose": null,
+    "inferred_purpose": "The interaction appears to be an officer taking an account from a person reporting a stolen phone and from a witness.",
+    "basis": "inferred"
+  },
+  "executive_summary": "An officer speaks with a person who gives the name Sunil Yadav and who reports that their phone was taken the previous night. The reporting person alleges that Rahul took the phone and states a belief that Rahul was present. A second person describes seeing a motorcycle but not the driver's face. The reporting person gives two different approximate arrival times. A CCTV camera outside a shop and a phone number are mentioned.",
+  "persons": [
+    {
+      "name": "Unknown Person (Speaker 1)",
+      "role": "Appears to be the interviewing officer (not stated)",
+      "relevant_info": "Asks questions and says CCTV footage will be reviewed.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:00",
+        "end_time": "00:06",
+        "quote": "आप अपना नाम और क्या हुआ बताइए।",
+        "quote_verified": null
+      }
+    },
+    {
+      "name": "Sunil Yadav",
+      "role": "Reporting person (as inferred from account)",
+      "relevant_info": "Gives this name and reports the phone as taken.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "मेरा नाम सुनील यादव है।",
+        "quote_verified": null
+      }
+    },
+    {
+      "name": "Unknown Person (Speaker 3)",
+      "role": "Witness (as inferred from account)",
+      "relevant_info": "Says they saw a white motorcycle and could not see a face clearly.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:33",
+        "end_time": "00:46",
+        "quote": "मैंने एक सफेद मोटरसाइकिल देखी, नंबर UP 65 AB 1234 था, पर चेहरा साफ नहीं दिखा।",
+        "quote_verified": null
+      }
+    },
+    {
+      "name": "Rahul",
+      "role": null,
+      "relevant_info": "Named by Speaker 2 as the person alleged to have taken the phone; no surname stated.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "राहुल ने मेरा फोन ले लिया।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "order": 1,
+      "description": "Officer asks for the person's name and what happened.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:00",
+        "end_time": "00:06",
+        "quote": "आप अपना नाम और क्या हुआ बताइए।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 2,
+      "description": "Speaker 2 states their name, reports the phone as taken the previous night, and alleges that Rahul took it.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "मेरा नाम सुनील यादव है। कल रात मेरा फोन चोरी हो गया। राहुल ने मेरा फोन ले लिया। मुझे लगता है कि राहुल वहाँ था।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 3,
+      "description": "Speaker 2 states they went there at about nine at night.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:23",
+        "end_time": "00:30",
+        "quote": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 4,
+      "description": "Speaker 3 describes a white motorcycle with a registration number and says the face was not clear.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:33",
+        "end_time": "00:46",
+        "quote": "मैंने एक सफेद मोटरसाइकिल देखी, नंबर UP 65 AB 1234 था, पर चेहरा साफ नहीं दिखा।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 5,
+      "description": "Speaker 2 says they actually arrived at about eight and mentions a camera outside the shop.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:46",
+        "end_time": "00:57",
+        "quote": "असल में हम आठ बजे के आसपास पहुँचे थे। दुकान के बाहर कैमरा लगा है।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 6,
+      "description": "Speaker 3 says they heard that Rahul's brother was also present.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:57",
+        "end_time": "01:04",
+        "quote": "मैंने सुना है कि राहुल का भाई भी वहीं था।",
+        "quote_verified": null
+      }
+    },
+    {
+      "order": 7,
+      "description": "Officer says CCTV footage will be reviewed and asks for a phone number.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "01:04",
+        "end_time": "01:15",
+        "quote": "ठीक है, सीसीटीवी फुटेज हम देखेंगे। आपका नंबर 98765 43210 लिखवाइए।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "statements": [
+    {
+      "speaker": "Speaker 2",
+      "statement": "Reports that their phone was stolen the previous night.",
+      "classification": "allegation",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "कल रात मेरा फोन चोरी हो गया।",
+        "quote_verified": null
+      }
+    },
+    {
+      "speaker": "Speaker 2",
+      "statement": "States a belief that Rahul was present.",
+      "classification": "belief",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "मुझे लगता है कि राहुल वहाँ था।",
+        "quote_verified": null
+      }
+    },
+    {
+      "speaker": "Speaker 2",
+      "statement": "States they went there at about nine at night.",
+      "classification": "fact",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:23",
+        "end_time": "00:30",
+        "quote": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+        "quote_verified": null
+      }
+    },
+    {
+      "speaker": "Speaker 3",
+      "statement": "States they saw a white motorcycle with registration UP 65 AB 1234 but not the face clearly.",
+      "classification": "fact",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:33",
+        "end_time": "00:46",
+        "quote": "मैंने एक सफेद मोटरसाइकिल देखी, नंबर UP 65 AB 1234 था, पर चेहरा साफ नहीं दिखा।",
+        "quote_verified": null
+      }
+    },
+    {
+      "speaker": "Speaker 2",
+      "statement": "States they arrived at about eight.",
+      "classification": "fact",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:46",
+        "end_time": "00:57",
+        "quote": "असल में हम आठ बजे के आसपास पहुँचे थे।",
+        "quote_verified": null
+      }
+    },
+    {
+      "speaker": "Speaker 3",
+      "statement": "Says they heard that Rahul's brother was also there.",
+      "classification": "hearsay",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:57",
+        "end_time": "01:04",
+        "quote": "मैंने सुना है कि राहुल का भाई भी वहीं था।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "explicit_facts": [
+    {
+      "text": "A person gave the name Sunil Yadav.",
+      "stated_by": "Speaker 2",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "मेरा नाम सुनील यादव है।",
+        "quote_verified": null
+      }
+    },
+    {
+      "text": "A camera is installed outside the shop.",
+      "stated_by": "Speaker 2",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:46",
+        "end_time": "00:57",
+        "quote": "दुकान के बाहर कैमरा लगा है।",
+        "quote_verified": null
+      }
+    },
+    {
+      "text": "The officer stated that CCTV footage will be reviewed.",
+      "stated_by": "Speaker 1",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "01:04",
+        "end_time": "01:15",
+        "quote": "सीसीटीवी फुटेज हम देखेंगे।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "allegations": [
+    {
+      "alleged_by": "Speaker 2",
+      "claim": "Rahul took their phone",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "राहुल ने मेरा फोन ले लिया।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "contradictions": [
+    {
+      "statement_a": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+      "statement_b": "असल में हम आठ बजे के आसपास पहुँचे थे।",
+      "speakers": [
+        "Speaker 2"
+      ],
+      "why_may_conflict": "The two statements appear inconsistent regarding the time Speaker 2 arrived (about nine versus about eight).",
+      "source_a": {
+        "source_type": "transcript",
+        "start_time": "00:23",
+        "end_time": "00:30",
+        "quote": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+        "quote_verified": null
+      },
+      "source_b": {
+        "source_type": "transcript",
+        "start_time": "00:46",
+        "end_time": "00:57",
+        "quote": "असल में हम आठ बजे के आसपास पहुँचे थे।",
+        "quote_verified": null
+      },
+      "confidence": "medium",
+      "qualification": "Both times are approximate and the second statement is introduced as a correction, so the difference may be a self-correction rather than a conflict."
+    }
+  ],
+  "unresolved_questions": [
+    "What time did Speaker 2 actually arrive?",
+    "Who is Rahul, and what is the basis of the allegation beyond Speaker 2's stated belief?",
+    "Who was the rider of the white motorcycle? Speaker 3 did not see the face clearly.",
+    "Is Speaker 3's account about Rahul's brother based on first-hand knowledge?"
+  ],
+  "follow_up_actions": [
+    {
+      "action": "Review CCTV footage from the camera outside the shop.",
+      "basis": "Speaker 2 mentioned a camera outside the shop and the officer said footage would be reviewed."
+    },
+    {
+      "action": "Verify the motorcycle registration UP 65 AB 1234.",
+      "basis": "Speaker 3 stated this registration number."
+    },
+    {
+      "action": "Clarify the arrival time with Speaker 2.",
+      "basis": "Speaker 2 gave about nine and then about eight."
+    },
+    {
+      "action": "Confirm the contact phone number noted by the officer.",
+      "basis": "The officer asked for, and a number was dictated: 98765 43210."
+    }
+  ],
+  "evidence": [
+    {
+      "category": "mobile phone",
+      "description": "Speaker 2's phone, reported as taken.",
+      "mentioned_by": "Speaker 2",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:06",
+        "end_time": "00:19",
+        "quote": "मेरा फोन चोरी हो गया",
+        "quote_verified": null
+      }
+    },
+    {
+      "category": "vehicle",
+      "description": "A white motorcycle.",
+      "mentioned_by": "Speaker 3",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:33",
+        "end_time": "00:46",
+        "quote": "मैंने एक सफेद मोटरसाइकिल देखी",
+        "quote_verified": null
+      }
+    },
+    {
+      "category": "vehicle registration",
+      "description": "UP 65 AB 1234",
+      "mentioned_by": "Speaker 3",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:33",
+        "end_time": "00:46",
+        "quote": "UP 65 AB 1234",
+        "quote_verified": null
+      }
+    },
+    {
+      "category": "CCTV",
+      "description": "A camera outside the shop; the officer said CCTV footage would be reviewed.",
+      "mentioned_by": "Speaker 2",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:46",
+        "end_time": "00:57",
+        "quote": "दुकान के बाहर कैमरा लगा है।",
+        "quote_verified": null
+      }
+    },
+    {
+      "category": "phone number",
+      "description": "98765 43210",
+      "mentioned_by": "Speaker 1",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "01:04",
+        "end_time": "01:15",
+        "quote": "98765 43210",
+        "quote_verified": null
+      }
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "uncertain name",
+      "description": "Speaker 3's name is not stated; Speaker 1 and Speaker 3 identities are not established.",
+      "source": null
+    },
+    {
+      "kind": "language uncertainty",
+      "description": "One sentence by Speaker 2 appears to be Bhojpuri; accuracy of its transcription needs review by a Bhojpuri speaker.",
+      "source": {
+        "source_type": "transcript",
+        "start_time": "00:23",
+        "end_time": "00:30",
+        "quote": "हम काल्हु रात में करीब नौ बजे उहाँ गइल रहीं।",
+        "quote_verified": null
+      }
+    }
+  ],
+  "detected_metadata": {
+    "date": null,
+    "time": null,
+    "location": null
+  }
+}

@@ -1,0 +1,21 @@
+[server]
+maxUploadSize = 200
+enableXsrfProtection = true
+headless = true
+# Bind to this machine only; recordings are sensitive.
+address = "localhost"
+
+[browser]
+# No telemetry: this application handles sensitive recordings.
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#1F3A5F"
+backgroundColor = "#F5F6F8"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1B2430"
+font = "sans serif"
