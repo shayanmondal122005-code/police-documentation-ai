@@ -32,8 +32,9 @@ from pipeline import PIPELINE_STEPS, PipelineResult, ReportMetadata, demo_record
 from transcription.base import TranscriptionOptions
 from ui import components as ui
 from ui.styles import APP_CSS
-from ui.settings import app_api_key
+from ui.settings import app_api_key, app_models
 from utils.audio import playback_mime
+from utils.gemini import check_model_connection
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,23 @@ def engine_options() -> tuple[str, TranscriptionOptions]:
         st.caption("Demo only: ignores the uploaded audio and uses a fictional transcript. Nothing is sent to Google.")
     if engine != ENGINE_MOCK and not app_api_key():
         st.info("To process audio, set GEMINI_API_KEY in .env or Streamlit Secrets. You can try the fictional demo without a key.")
+    if engine != ENGINE_MOCK:
+        with st.expander("Gemini connection and model settings"):
+            models = app_models()
+            st.write(f"Transcription: {models.asr if engine == ENGINE_ASR else models.prompted}")
+            st.write(f"Report: {models.report}. Flash fallback: {models.fallback or 'disabled'}.")
+            st.caption("Model overrides can be set in Streamlit Secrets or .env. If dedicated ASR is unavailable, select the prompted engine above.")
+            st.caption("This check sends a short text request to the report model. It does not test audio transcription.")
+            if st.button("Test Gemini connection", disabled=not app_api_key(), key="check_gemini"):
+                try:
+                    with st.spinner("Checking Gemini…"):
+                        check_model_connection(app_api_key(), models.report)
+                    st.success("Gemini answered the text request. Audio transcription has not been tested.")
+                except UserFacingError as exc:
+                    st.error(exc.user_message)
+                except Exception as exc:
+                    logger.error("Unexpected connection check error: %s", type(exc).__name__)
+                    st.error("The connection check failed unexpectedly. No sensitive details are shown.")
     return engine, options
 
 
@@ -119,6 +137,7 @@ def process(filename: str, data: bytes, engine: str, options: TranscriptionOptio
             result = run_pipeline(
                 filename, data, engine, options, metadata, progress=lambda step: status.write(f"✓ {step}"),
                 api_key=app_api_key() if engine != ENGINE_MOCK else None,
+                models=app_models(),
             )
             status.update(label=f"Complete — {len(PIPELINE_STEPS)} steps finished", state="complete", expanded=False)
     except UserFacingError as exc:
@@ -213,7 +232,8 @@ def metadata_tab(result: PipelineResult) -> None:
     meta = result.report.transcript_meta
     st.markdown("#### Processing")
     st.markdown(
-        f"- **Engine:** {meta.engine}\n- **Model:** {meta.model or 'n/a (local mock)'}\n"
+        f"- **Engine:** {meta.engine}\n- **Transcription model:** {meta.model or 'n/a (local mock)'}\n"
+        f"- **Report model:** {result.report_model or 'n/a (local mock)'}\n"
         f"- **Timestamp source:** {meta.timestamp_source}\n- **Speaker labels available:** {meta.speakers_available}"
     )
 

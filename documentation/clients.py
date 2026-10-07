@@ -8,9 +8,9 @@ from typing import Any, Protocol
 from google import genai
 from google.genai import types
 
-from config import REPORT_MODEL, REPORT_TEMPERATURE
+from config import FALLBACK_MODEL, REPORT_MODEL
 from errors import ReportGenerationError
-from utils.gemini import create_client, simplify_schema, translate_error
+from utils.gemini import create_client, generate_with_fallback, simplify_schema, translate_error
 
 MOCK_ANALYSIS_PATH = Path(__file__).resolve().parent.parent / "sample_data" / "mock_model_report.json"
 
@@ -24,19 +24,25 @@ class ReportModelClient(Protocol):
 class GeminiReportClient:
     """Gemini structured-output client (`response_json_schema`)."""
 
-    def __init__(self, client: genai.Client | None = None, model: str = REPORT_MODEL) -> None:
+    def __init__(self, client: genai.Client | None = None, model: str = REPORT_MODEL,
+                 fallback_model: str | None = FALLBACK_MODEL) -> None:
         self._client = client
         self._model = model
+        self._fallback_model = fallback_model
+        self.actual_model: str | None = None
 
     def generate_json(self, system_instruction: str, prompt: str, schema: dict[str, Any]) -> str:
         try:
             client = self._client or create_client()
-            response = client.models.generate_content(
+            response, self.actual_model = generate_with_fallback(
+                client,
                 model=self._model,
+                fallback_model=self._fallback_model,
+                error_cls=ReportGenerationError,
+                action="Report generation",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=REPORT_TEMPERATURE,
                     response_mime_type="application/json",
                     response_json_schema=simplify_schema(schema),
                 ),

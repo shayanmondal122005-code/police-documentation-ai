@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from config import ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES, ENGINE_ASR, ENGINE_MOCK, ENGINE_PROMPTED, get_api_key
+from config import ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES, ENGINE_ASR, ENGINE_MOCK, ENGINE_PROMPTED, GeminiModels, get_api_key
 from documentation.clients import GeminiReportClient, MockReportClient, ReportModelClient
 from documentation.render import report_to_markdown
 from documentation.report_generator import generate_report
@@ -55,9 +55,11 @@ class PipelineResult:
     transcript: TranscriptResult
     report: PoliceReport
     markdown: str
+    report_model: str | None = None
 
 
-def build_engines(engine: str, api_key: str | None = None) -> tuple[Transcriber, ReportModelClient]:
+def build_engines(engine: str, api_key: str | None = None,
+                  models: GeminiModels | None = None) -> tuple[Transcriber, ReportModelClient]:
     """Return the (transcriber, report client) pair for an engine key."""
     if engine == ENGINE_MOCK:
         return MockTranscriber(), MockReportClient()
@@ -70,9 +72,11 @@ def build_engines(engine: str, api_key: str | None = None) -> tuple[Transcriber,
             "or choose the Mock engine to try the app without an API key."
         )
     client = create_client(api_key)
+    models = models or GeminiModels()
+    report_client = GeminiReportClient(client=client, model=models.report, fallback_model=models.fallback)
     if engine == ENGINE_ASR:
-        return GeminiASRTranscriber(client=client), GeminiReportClient(client=client)
-    return GeminiPromptedTranscriber(client=client), GeminiReportClient(client=client)
+        return GeminiASRTranscriber(client=client, model=models.asr), report_client
+    return GeminiPromptedTranscriber(client=client, model=models.prompted, fallback_model=models.fallback), report_client
 
 
 def demo_recording() -> tuple[str, bytes]:
@@ -102,6 +106,7 @@ def run_pipeline(
     metadata: ReportMetadata,
     progress: ProgressCallback | None = None,
     api_key: str | None = None,
+    models: GeminiModels | None = None,
 ) -> PipelineResult:
     """Run the full pipeline. `progress` is called with a step name as each step completes."""
     notify = progress or (lambda _step: None)
@@ -111,7 +116,7 @@ def run_pipeline(
         seconds = detect_duration_seconds(data, filename)
         if seconds is not None and seconds > ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES * 60:
             raise ConfigurationError("This recording exceeds the 30-minute ASR limit. Turn off timestamps and speaker labels, or use the prompted engine.")
-    transcriber, report_client = build_engines(engine, api_key)
+    transcriber, report_client = build_engines(engine, api_key, models)
     notify(STEP_UPLOADED)
 
     try:
@@ -143,7 +148,8 @@ def run_pipeline(
     notify(STEP_TIMELINE)
     markdown = report_to_markdown(report)
     notify(STEP_DOCUMENTED)
-    return PipelineResult(integrity, duration, transcript, report, markdown)
+    return PipelineResult(integrity, duration, transcript, report, markdown,
+                          report_model=getattr(report_client, "actual_model", None))
 
 
 def _transcribe(

@@ -23,8 +23,8 @@ from config import (
     ASR_TRANSCRIPTION_MODEL,
     ENGINE_ASR,
     ENGINE_PROMPTED,
+    FALLBACK_MODEL,
     PROMPTED_TRANSCRIPTION_MODEL,
-    TRANSCRIPTION_TEMPERATURE,
 )
 from errors import NoSpeechError, TranscriptionError
 from prompts.transcription_prompt import TRANSCRIPTION_SYSTEM_INSTRUCTION, TRANSCRIPTION_USER_PROMPT
@@ -34,7 +34,7 @@ from transcription.base import (
     TranscriptResult,
     TranscriptSegment,
 )
-from utils.gemini import create_client, simplify_schema, translate_error, uploaded_audio
+from utils.gemini import create_client, generate_with_fallback, simplify_schema, translate_error, uploaded_audio
 
 _TIME_PATTERN = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
 _ACTION = "Transcription"
@@ -109,9 +109,11 @@ class GeminiPromptedTranscriber(Transcriber):
 
     name = ENGINE_PROMPTED
 
-    def __init__(self, client: genai.Client | None = None, model: str = PROMPTED_TRANSCRIPTION_MODEL) -> None:
+    def __init__(self, client: genai.Client | None = None, model: str = PROMPTED_TRANSCRIPTION_MODEL,
+                 fallback_model: str | None = FALLBACK_MODEL) -> None:
         self._client = client
         self._model = model
+        self._fallback_model = fallback_model
 
     def transcribe(
         self, audio_path: Path, mime_type: str, options: TranscriptionOptions | None = None
@@ -119,21 +121,27 @@ class GeminiPromptedTranscriber(Transcriber):
         try:
             client = self._client or create_client()
             with uploaded_audio(client, audio_path, mime_type) as audio_file:
-                response = client.models.generate_content(
+                response, actual_model = generate_with_fallback(
+                    client,
                     model=self._model,
+                    fallback_model=self._fallback_model,
+                    error_cls=TranscriptionError,
+                    action=_ACTION,
                     contents=[TRANSCRIPTION_USER_PROMPT, audio_file],
                     config=types.GenerateContentConfig(
                         system_instruction=TRANSCRIPTION_SYSTEM_INSTRUCTION,
-                        temperature=TRANSCRIPTION_TEMPERATURE,
                         response_mime_type="application/json",
                         response_json_schema=simplify_schema(_PromptedTranscript.model_json_schema()),
                     ),
                 )
-            return parse_prompted_response(response.text or "", self._model)
+            result = parse_prompted_response(response.text or "", actual_model)
+            if actual_model != self._model:
+                result.warnings.append(f"The primary transcription model was unavailable; {actual_model} produced this transcript.")
+            return result
         except (NoSpeechError, TranscriptionError):
             raise
         except Exception as exc:  # noqa: BLE001 - translated to a safe message
-            raise translate_error(exc, TranscriptionError, _ACTION) from exc
+            raise translate_error(exc, TranscriptionError, "Transcription (audio upload/processing)") from exc
 
 
 # ---------------------------------------------------------------- dedicated ASR engine
@@ -237,13 +245,16 @@ class GeminiASRTranscriber(Transcriber):
         try:
             client = self._client or create_client()
             with uploaded_audio(client, audio_path, mime_type) as audio_file:
-                response = client.models.generate_content(
+                response, _ = generate_with_fallback(
+                    client,
                     model=self._model,
+                    error_cls=TranscriptionError,
+                    action=_ACTION,
                     contents=[audio_file],
                     config=types.GenerateContentConfig(audio_transcription_config=asr_config),
                 )
             return parse_asr_response(response, self._model, options.with_timestamps, options.with_speakers)
-        except NoSpeechError:
+        except (NoSpeechError, TranscriptionError):
             raise
         except Exception as exc:  # noqa: BLE001 - translated to a safe message
-            raise translate_error(exc, TranscriptionError, _ACTION) from exc
+            raise translate_error(exc, TranscriptionError, "Transcription (audio upload/processing)") from exc

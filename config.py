@@ -8,6 +8,7 @@ environment variable; the key itself is read lazily by `get_api_key`.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
@@ -34,10 +35,19 @@ PRIVACY_NOTICE = (
 
 API_KEY_ENV_VAR = "GEMINI_API_KEY"
 
-# --- Models (verified against official docs on 2026-10-06; see docs/GEMINI_API_RESEARCH.md)
+# --- Models (verified against official docs on 2026-10-07; see docs/GEMINI_API_RESEARCH.md)
 PROMPTED_TRANSCRIPTION_MODEL = os.getenv("GEMINI_TRANSCRIPTION_MODEL", "gemini-3.8-flash")
 ASR_TRANSCRIPTION_MODEL = os.getenv("GEMINI_ASR_MODEL", "gemini-3.5-transcribe")
 REPORT_MODEL = os.getenv("GEMINI_REPORT_MODEL", "gemini-3.8-flash")
+FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.7-flash")
+
+
+@dataclass(frozen=True)
+class GeminiModels:
+    prompted: str = PROMPTED_TRANSCRIPTION_MODEL
+    asr: str = ASR_TRANSCRIPTION_MODEL
+    report: str = REPORT_MODEL
+    fallback: str = FALLBACK_MODEL
 
 # --- Transcription engines offered in the UI
 ENGINE_PROMPTED = "prompted"
@@ -71,9 +81,7 @@ FILE_PROCESSING_TIMEOUT_SECONDS = 180
 FILE_POLL_INTERVAL_SECONDS = 2
 REPORT_MAX_ATTEMPTS = 2
 
-# --- Generation
-TRANSCRIPTION_TEMPERATURE = 0.0
-REPORT_TEMPERATURE = 0.1
+# Generation uses the model's default sampling settings, as recommended for Gemini 3.x.
 
 
 def get_api_key() -> str | None:

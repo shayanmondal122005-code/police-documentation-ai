@@ -1,6 +1,6 @@
 # Gemini API Research
 
-**Date of research:** 2026-10-06
+**Date of research:** 2026-10-06; recovery settings rechecked 2026-10-07
 **Method:** Official Google documentation fetched on the research date, plus direct
 inspection of the installed official SDK (`google-genai` 2.28.0) type definitions
 for exact parameter names. No third-party tutorials were used as authority.
@@ -17,6 +17,8 @@ for exact parameter names. No third-party tutorials were used as authority.
 |---|---|
 | Models | https://ai.google.dev/gemini-api/docs/models |
 | Gemini 3.8 Flash | https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash |
+| Gemini 3.7 Flash (fallback) | https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash |
+| Troubleshooting / retries / sampling | https://ai.google.dev/gemini-api/docs/troubleshooting |
 | Gemini 3.5 Transcribe (model page) | https://ai.google.dev/gemini-api/docs/models/gemini-3.5-transcribe |
 | Audio transcription guide | https://ai.google.dev/gemini-api/docs/generate-content/transcribe |
 | Audio understanding | https://ai.google.dev/gemini-api/docs/audio |
@@ -34,8 +36,15 @@ for exact parameter names. No third-party tutorials were used as authority.
 | Default transcription (prompted) | `gemini-3.8-flash` | Stable, free tier |
 | Optional transcription (dedicated ASR) | `gemini-3.5-transcribe` | Stable, free tier |
 | Reasoning / structured report | `gemini-3.8-flash` | Stable, free tier |
+| Prompted transcription / report fallback | `gemini-3.7-flash` | Stable; audio input and structured output |
 
-All three are overridable via environment variables (see `config.py`).
+All are overridable via environment variables or Streamlit Secrets (see `config.py`
+and `ui/settings.py`). Generation uses default sampling settings as Google recommends
+for Gemini 3.x. The SDK already retries transient failures; the app additionally
+tries one compatible Flash fallback after HTTP 500/502/503 generation failures.
+It does not apply Flash configuration to dedicated ASR or change models on quota,
+invalid request, credential, upload or safety failures. No live recovery test has
+been performed without a key; mock tests verify switching, schemas and cleanup.
 
 ### Why
 

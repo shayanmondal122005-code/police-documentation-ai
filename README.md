@@ -71,17 +71,19 @@ GEMINI_API_KEY=your-key-here
 ```
 
 Optional overrides (defaults are in `config.py`): `GEMINI_TRANSCRIPTION_MODEL`,
-`GEMINI_ASR_MODEL`, `GEMINI_REPORT_MODEL`.
+`GEMINI_ASR_MODEL`, `GEMINI_REPORT_MODEL`, `GEMINI_FALLBACK_MODEL`. These can also
+be set in Streamlit Secrets; environment values take priority.
 
 ## Gemini API setup
 
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
 2. Put it in `.env` as `GEMINI_API_KEY`. The app uses the official `google-genai` SDK
    (`from google import genai`) and passes the key explicitly.
-3. Models (verified against Google's documentation on 2026-10-06; see
+3. Models (verified against Google's documentation on 2026-10-07; see
    [`docs/GEMINI_API_RESEARCH.md`](docs/GEMINI_API_RESEARCH.md)):
    * Prompted transcription and report generation: `gemini-3.8-flash`
    * Optional dedicated ASR (speaker labels, word timestamps): `gemini-3.5-transcribe`
+   * Flash fallback on HTTP 500/502/503: `gemini-3.7-flash`
 
 > **Not yet verified live.** The Gemini integration was built from the official documentation and
 > SDK types and is tested against a mocked Gemini layer. It has not been run against the live
@@ -134,6 +136,34 @@ Omit `--env-file .env` for the offline demo. The container runs as a non-root us
 excludes secrets and recordings from its build context, and includes a health check.
 The Docker image has not been built in the development environment; the Python app
 and its health endpoint have been tested directly.
+
+### Persistent Gemini errors
+
+Open **Gemini connection and model settings** under **Upload audio** to see the
+configured models and run a text-only connection check. A successful check confirms
+that the report model can answer text; it does not verify Files API or transcription.
+Errors identify audio upload/processing versus model generation and show HTTP status
+without printing Google's raw response, credentials or recording contents.
+
+The official SDK already retries transient errors with exponential backoff. After
+those retries exhaust, prompted transcription and report generation each try the
+configured Flash fallback once for HTTP 500/502/503, keeping the same prompts and
+JSON schemas. Invalid requests, key/access errors, quota failures, blocked/invalid
+output and upload failures do not trigger a model fallback. Dedicated ASR keeps its
+own model; select **Gemini Flash — prompted** if ASR is unavailable. The actual
+transcription and report models appear in the **METADATA** tab.
+
+If the default Flash model keeps failing, set these in Streamlit Secrets (keep your
+existing `GEMINI_API_KEY` entry), save, and reboot the app:
+
+```toml
+GEMINI_TRANSCRIPTION_MODEL = "gemini-3.7-flash"
+GEMINI_REPORT_MODEL = "gemini-3.7-flash"
+```
+
+Test again using a short, non-sensitive recording. Set `GEMINI_FALLBACK_MODEL = ""`
+to disable automatic fallback. An alternative model can also be unavailable or
+inaccessible; the app cannot resolve an outage or a missing model entitlement.
 
 ## Testing
 
