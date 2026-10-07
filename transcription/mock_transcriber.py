@@ -1,7 +1,7 @@
 """Mock transcriber: returns a fixed local transcript so the pipeline runs without an API key.
 
 No audio is read or sent anywhere. The transcript is the fixture in
-`tests/fixtures/mock_transcript.json`, which contains no real person's data.
+`sample_data/mock_transcript.json`, which contains no real person's data.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 from config import ENGINE_MOCK
 from transcription.base import Transcriber, TranscriptionOptions, TranscriptResult
 
-FIXTURE_PATH = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "mock_transcript.json"
+FIXTURE_PATH = Path(__file__).resolve().parent.parent / "sample_data" / "mock_transcript.json"
 
 
 def load_mock_transcript(path: Path = FIXTURE_PATH) -> TranscriptResult:

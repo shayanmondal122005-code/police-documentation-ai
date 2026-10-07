@@ -15,6 +15,7 @@ _TIME_SOURCE_NOTES = {
     "none": "The transcript has no timestamps. No times are shown and none have been inferred.",
     "model_reported": "Times were reported by a general-purpose model and are unverified; check them against the recording.",
     "asr_word_offsets": "Times come from speech-recognition word offsets.",
+    "asr_segment_offsets": "Times come from speech-recognition segment offsets; verify against the recording.",
 }
 
 

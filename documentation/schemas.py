@@ -1,6 +1,6 @@
 """Pydantic schemas for the structured police field-interaction report.
 
-`ModelReport` is what the language model must produce (and what Gemini's JSON-schema
+`ModelReport` is what the language model must produce (and what Groq's JSON-schema
 mode is given). `PoliceReport` wraps it with administrative data, integrity data and
 review flags that are filled in by code, never by the model.
 

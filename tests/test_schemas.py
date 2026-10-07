@@ -13,7 +13,7 @@ from documentation.schemas import (
     SourceRef,
     Statement,
 )
-from utils.gemini import simplify_schema
+from utils.groq import strict_schema
 
 
 def test_mock_model_report_validates(mock_analysis_json):
@@ -60,8 +60,8 @@ def test_police_report_carries_title_and_draft_warning(mock_analysis, integrity)
     assert report.ai_draft_warning == AI_DRAFT_WARNING
 
 
-def test_json_schema_for_gemini_is_serialisable_and_stripped_of_titles():
-    schema = simplify_schema(ModelReport.model_json_schema())
+def test_json_schema_for_groq_is_serialisable_and_stripped_of_titles():
+    schema = strict_schema(ModelReport.model_json_schema())
     assert '"title"' not in json.dumps(schema)
     assert "executive_summary" in schema["properties"]
     assert "executive_summary" in schema["required"]

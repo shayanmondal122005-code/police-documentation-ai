@@ -22,11 +22,12 @@ def get_extension(filename: str) -> str:
 _PLAYBACK_MIME = {
     ".mp3": "audio/mpeg", ".mpeg": "audio/mpeg", ".wav": "audio/wav",
     ".m4a": "audio/mp4", ".mp4": "audio/mp4", ".webm": "audio/webm",
+    ".flac": "audio/flac", ".ogg": "audio/ogg", ".mpga": "audio/mpeg",
 }
 
 
 def playback_mime(filename: str) -> str:
-    """MIME type for the browser audio player (not the type sent to Gemini)."""
+    """MIME type for the browser audio player."""
     return _PLAYBACK_MIME.get(get_extension(filename), "audio/wav")
 
 
@@ -85,7 +86,7 @@ def detect_duration_seconds(data: bytes, filename: str) -> float | None:
 
 @contextlib.contextmanager
 def temporary_audio_file(data: bytes, suffix: str) -> Iterator[Path]:
-    """Write audio to a temp file for the Gemini SDK, and always delete it afterwards."""
+    """Write audio to a temp file for the transcription SDK, and always delete it afterwards."""
     fd, name = tempfile.mkstemp(prefix="pdai_", suffix=suffix)
     path = Path(name)
     try:

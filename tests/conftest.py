@@ -1,4 +1,4 @@
-"""Shared fixtures. No test here calls the real Gemini API."""
+"""Shared fixtures. No test here calls the real Groq API."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from documentation.schemas import ModelReport
 from integrity.hashing import RecordingIntegrity
 from transcription.base import TranscriptResult
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parent.parent / "sample_data"
 
 
 @pytest.fixture

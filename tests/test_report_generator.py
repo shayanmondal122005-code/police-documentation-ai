@@ -98,7 +98,7 @@ def test_validation_feedback_does_not_echo_transcript_text(mock_transcript, inte
 def test_timestamps_are_stripped_when_transcript_has_none(integrity, mock_analysis_json):
     transcript = TranscriptResult(
         raw_transcript="\n".join(
-            s["text"] for s in json.loads(open("tests/fixtures/mock_transcript.json", encoding="utf-8").read())["segments"]
+            s["text"] for s in json.loads(open("sample_data/mock_transcript.json", encoding="utf-8").read())["segments"]
         ),
         segments=[TranscriptSegment(text="x")],
     )

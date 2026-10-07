@@ -39,3 +39,7 @@ temp/
 
 # Local tooling
 .claude/
+
+*.flac
+*.ogg
+*.mpga

@@ -12,13 +12,10 @@ import streamlit as st
 
 from config import (
     APP_NAME,
-    ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES,
-    ENGINE_ASR,
     ENGINE_LABELS,
     ENGINE_MOCK,
-    ENGINE_PROMPTED,
+    ENGINE_GROQ,
     SUPPORTED_EXTENSIONS,
-    get_api_key,
 )
 from errors import ExportError, UserFacingError
 from export.document_export import (
@@ -29,11 +26,13 @@ from export.document_export import (
     export_pdf,
     export_txt,
 )
-from pipeline import PIPELINE_STEPS, PipelineResult, ReportMetadata, prepare_recording, run_pipeline
+from pipeline import PIPELINE_STEPS, PipelineResult, ReportMetadata, demo_recording, prepare_recording, run_pipeline
 from transcription.base import TranscriptionOptions
 from ui import components as ui
 from ui.styles import APP_CSS
+from ui.settings import app_api_key, app_models
 from utils.audio import playback_mime
+from utils.groq import check_model_connection
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ def metadata_form() -> ReportMetadata:
     date_value = left.date_input("Date", value=None, key="date")
     time_value = right.time_input("Time", value=None, key="time")
     location = st.text_input("Location", key="location")
-    st.caption("Values entered here override anything the AI finds in the recording. Blank fields stay blank.")
+    st.caption("Your entries take priority. Blank date, time or location fields may be filled from explicit statements in the recording and marked for review.")
     return ReportMetadata(
         case_reference=case_reference,
         officer=officer,
@@ -64,30 +63,41 @@ def metadata_form() -> ReportMetadata:
 
 def engine_options() -> tuple[str, TranscriptionOptions]:
     st.subheader("Transcription")
-    engine = st.selectbox(
-        "Engine",
-        options=[ENGINE_PROMPTED, ENGINE_ASR, ENGINE_MOCK],
-        format_func=ENGINE_LABELS.get,
-        key="engine",
-    )
-    options = TranscriptionOptions()
-    if engine == ENGINE_ASR:
-        options.with_timestamps = st.checkbox("Word timestamps (may reduce accuracy)", value=True, key="opt_ts")
-        options.with_speakers = st.checkbox("Speaker labels (3+ speakers is experimental)", value=True, key="opt_spk")
-        if options.with_timestamps or options.with_speakers:
-            st.caption(f"With timestamps or speaker labels, the ASR model accepts at most "
-                       f"{ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES} minutes of audio.")
-    elif engine == ENGINE_PROMPTED:
-        st.caption("Uses Hindi/Bhojpuri-aware instructions. Speaker labels and times are model-reported and unverified.")
+    # Old provider selections must not survive the deployment migration.
+    if st.session_state.get("engine") not in (None, ENGINE_GROQ, ENGINE_MOCK):
+        st.session_state.pop("engine", None)
+    engine = st.selectbox("Engine", options=[ENGINE_GROQ, ENGINE_MOCK],
+                          format_func=ENGINE_LABELS.get, key="engine")
+    options = TranscriptionOptions(with_speakers=False)
+    if engine == ENGINE_GROQ:
+        options.with_timestamps = st.checkbox("Segment timestamps", value=True, key="opt_ts")
+        st.caption("Whisper transcribes in the original language. Speaker labels are unavailable; verify Hindi/Bhojpuri wording against the recording.")
+        key = app_api_key()
+        if not key:
+            st.info("Set GROQ_API_KEY in .env or Streamlit Secrets to process audio. Create your key at https://console.groq.com/keys.")
+        with st.expander("Groq connection and model settings"):
+            models = app_models()
+            st.write(f"Transcription: {models.transcription}. Report: {models.report}.")
+            st.caption("Optional overrides: GROQ_TRANSCRIPTION_MODEL and GROQ_REPORT_MODEL. Groq Console controls model access and API limits.")
+            st.caption("This check sends a short text/JSON request to the report model. Audio transcription needs a recording test.")
+            if st.button("Test Groq connection", disabled=not key, key="check_groq"):
+                try:
+                    with st.spinner("Checking Groq…"):
+                        check_model_connection(key, models)
+                    st.success("Groq answered the report-model request. Audio transcription has not been tested.")
+                except UserFacingError as exc:
+                    st.error(exc.user_message)
+                except Exception as exc:
+                    logger.error("Unexpected connection check error: %s", type(exc).__name__)
+                    st.error("The connection check failed unexpectedly. No sensitive details are shown.")
     else:
-        st.caption("Demo only: ignores the uploaded audio and uses a fictional transcript. Nothing is sent to Google.")
-    if engine != ENGINE_MOCK and not get_api_key():
-        st.error("GEMINI_API_KEY is not set. Add it to your .env file, or choose the Mock engine.")
+        st.caption("Demo only: ignores the uploaded audio and uses a fictional transcript. Nothing is sent to Groq.")
     return engine, options
 
 
 def upload_section() -> tuple[str, bytes] | None:
     st.subheader("Upload Recording")
+    st.caption("Maximum 25 MB. Start with a short, non-sensitive WAV or MP3 recording.")
     uploaded = st.file_uploader(
         "Drag & drop a recording", type=list(SUPPORTED_EXTENSIONS), key="recording", accept_multiple_files=False
     )
@@ -114,11 +124,12 @@ def upload_section() -> tuple[str, bytes] | None:
 
 
 def process(filename: str, data: bytes, engine: str, options: TranscriptionOptions, metadata: ReportMetadata) -> None:
-    st.session_state.pop("result", None)
     try:
         with st.status("Processing recording…", expanded=True) as status:
             result = run_pipeline(
-                filename, data, engine, options, metadata, progress=lambda step: status.write(f"✓ {step}")
+                filename, data, engine, options, metadata, progress=lambda step: status.write(f"✓ {step}"),
+                api_key=app_api_key() if engine != ENGINE_MOCK else None,
+                models=app_models(),
             )
             status.update(label=f"Complete — {len(PIPELINE_STEPS)} steps finished", state="complete", expanded=False)
     except UserFacingError as exc:
@@ -131,6 +142,18 @@ def process(filename: str, data: bytes, engine: str, options: TranscriptionOptio
     st.session_state["result"] = result
     st.session_state["report_text"] = result.markdown
     st.session_state["officer_review"] = ""
+    st.session_state["review_confirmed"] = False
+
+
+def reset_report() -> None:
+    """Clear the report, uploaded audio, metadata and review together before rerender."""
+    for key in ("result", "prepared", "report_text", "officer_review", "review_confirmed",
+                "recording", "case_reference", "officer", "date", "time", "location", "opt_ts", "opt_spk"):
+        st.session_state.pop(key, None)
+
+
+def invalidate_review() -> None:
+    st.session_state["review_confirmed"] = False
 
 
 # ------------------------------------------------------------------ results
@@ -140,29 +163,33 @@ def report_tab(result: PipelineResult) -> None:
     ui.draft_banner()
     ui.render_review_flags(result.report)
     st.markdown("**Edit the report below before export.** The warning banner is always re-added on export.")
-    st.text_area("Report text (Markdown)", key="report_text", height=420)
+    st.text_area("Report text (Markdown)", key="report_text", height=420, on_change=invalidate_review)
     st.text_area(
         "Officer Review / Corrections",
         key="officer_review",
         height=140,
         placeholder="Record corrections, additions and the reviewing officer's notes here.",
+        on_change=invalidate_review,
     )
+    reviewed = st.checkbox("I have checked this draft against the recording and reviewed the flagged items.", key="review_confirmed")
     document = compose_document(st.session_state["report_text"], st.session_state["officer_review"])
     with st.expander("Preview export"):
         st.markdown(document)
     st.markdown("#### Export")
     rid = result.integrity.recording_id
     cols = st.columns(4)
-    cols[0].download_button("Markdown (.md)", export_markdown(document), export_filename(rid, "md"), "text/markdown")
-    cols[1].download_button("Text (.txt)", export_txt(document), export_filename(rid, "txt"), "text/plain")
+    if not reviewed:
+        st.caption("Review the draft and confirm above to enable downloads. Exports remain marked as AI-generated drafts.")
+    cols[0].download_button("Markdown (.md)", export_markdown(document), export_filename(rid, "md"), "text/markdown", disabled=not reviewed)
+    cols[1].download_button("Text (.txt)", export_txt(document), export_filename(rid, "txt"), "text/plain", disabled=not reviewed)
     _export_button(cols[2], "Word (.docx)", export_docx, document, export_filename(rid, "docx"),
-                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    _export_button(cols[3], "PDF (.pdf)", export_pdf, document, export_filename(rid, "pdf"), "application/pdf")
+                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", disabled=not reviewed)
+    _export_button(cols[3], "PDF (.pdf)", export_pdf, document, export_filename(rid, "pdf"), "application/pdf", disabled=not reviewed)
 
 
-def _export_button(column, label: str, exporter, document: str, filename: str, mime: str) -> None:  # noqa: ANN001
+def _export_button(column, label: str, exporter, document: str, filename: str, mime: str, disabled: bool = False) -> None:  # noqa: ANN001
     try:
-        column.download_button(label, exporter(document), filename, mime)
+        column.download_button(label, exporter(document), filename, mime, disabled=disabled)
     except ExportError as exc:
         column.button(label, disabled=True, key=f"disabled_{label}")
         column.caption(exc.user_message)
@@ -197,7 +224,8 @@ def metadata_tab(result: PipelineResult) -> None:
     meta = result.report.transcript_meta
     st.markdown("#### Processing")
     st.markdown(
-        f"- **Engine:** {meta.engine}\n- **Model:** {meta.model or 'n/a (local mock)'}\n"
+        f"- **Engine:** {meta.engine}\n- **Transcription model:** {meta.model or 'n/a (local mock)'}\n"
+        f"- **Report model:** {result.report_model or 'n/a (local mock)'}\n"
         f"- **Timestamp source:** {meta.timestamp_source}\n- **Speaker labels available:** {meta.speakers_available}"
     )
 
@@ -208,6 +236,8 @@ def results_section(current_recording_id: str | None) -> None:
         return
     st.divider()
     st.subheader(f"Documentation — {result.integrity.recording_id}")
+    if result.transcript.engine == ENGINE_MOCK:
+        st.info("FICTIONAL DEMO — this report comes from a built-in sample transcript, not an audio transcription.")
     if current_recording_id and current_recording_id != result.integrity.recording_id:
         st.warning("The results below belong to a previously processed recording, not the one currently uploaded.")
     tabs = st.tabs(["REPORT", "TRANSCRIPT", "TIMELINE", "STATEMENTS", "EVIDENCE", "METADATA"])
@@ -223,19 +253,27 @@ def results_section(current_recording_id: str | None) -> None:
         ui.render_evidence(result.report)
     with tabs[5]:
         metadata_tab(result)
-    if st.button("Start new report"):
-        for key in ("result", "report_text", "officer_review"):
-            st.session_state.pop(key, None)
-        st.rerun()
+    st.button("Start new report", on_click=reset_report)
 
 
 def main() -> None:
     ui.render_header()
+    st.caption("1. Add details  →  2. Choose a recording  →  3. Generate  →  4. Review and export")
     metadata = metadata_form()
-    engine, options = engine_options()
-    upload = upload_section()
-    ready = upload is not None and "prepared" in st.session_state
-    if st.button("Generate Police Documentation", type="primary", disabled=not ready):
+    source = st.radio("Recording source", ["Upload audio", "Try fictional demo"],
+                      index=0 if app_api_key() else 1, horizontal=True, key="source")
+    if source == "Try fictional demo":
+        engine, options = ENGINE_MOCK, TranscriptionOptions()
+        st.info("Try the full review and export flow with a fictional Hindi/Bhojpuri transcript. No API key or upload is needed, and nothing is sent to Groq.")
+        upload = demo_recording()
+        _mime, integrity, duration = prepare_recording(*upload)
+        st.session_state["prepared"] = {"file_id": "demo", "integrity": integrity, "duration": duration}
+    else:
+        engine, options = engine_options()
+        upload = upload_section()
+    ready = upload is not None and "prepared" in st.session_state and (engine == ENGINE_MOCK or bool(app_api_key()))
+    label = "Generate demo report" if source == "Try fictional demo" else "Generate Police Documentation"
+    if st.button(label, type="primary", disabled=not ready):
         filename, data = upload
         process(filename, data, engine, options, metadata)
     prepared = st.session_state.get("prepared")
