@@ -30,9 +30,9 @@ from errors import ConfigurationError, UserFacingError
 logger = logging.getLogger(__name__)
 
 
-def create_client() -> genai.Client:
+def create_client(api_key: str | None = None) -> genai.Client:
     """Create a Gemini client from GEMINI_API_KEY; raise ConfigurationError if it is missing."""
-    api_key = get_api_key()
+    api_key = api_key or get_api_key()
     if not api_key:
         raise ConfigurationError(
             f"No Gemini API key found. Set {API_KEY_ENV_VAR} in your .env file "
@@ -81,6 +81,8 @@ def _api_error_message(exc: genai_errors.APIError, action: str) -> str:
         return f"{action} failed: the Gemini API key was rejected. Check {API_KEY_ENV_VAR} in your .env file."
     if code == 429:
         return f"{action} failed: Gemini rate limit or quota reached. Wait a minute and try again."
+    if code == 404:
+        return f"{action} failed: the configured Gemini model is unavailable for this API key. Check the model settings and access in Google AI Studio."
     if code in (408, 504) or "deadline" in text:
         return f"{action} timed out on the Gemini side. Try again, or use a shorter recording."
     if code == 400:
@@ -96,14 +98,18 @@ def _api_error_message(exc: genai_errors.APIError, action: str) -> str:
 def upload_audio(client: genai.Client, audio_path: Path, mime_type: str) -> Any:
     """Upload audio through the Files API and wait until it is ready to use."""
     uploaded = client.files.upload(file=str(audio_path), config=types.UploadFileConfig(mime_type=mime_type))
-    deadline = time.monotonic() + FILE_PROCESSING_TIMEOUT_SECONDS
-    while _state_name(uploaded) == "PROCESSING":
-        if time.monotonic() > deadline:
-            raise TimeoutError("file processing timed out")
-        time.sleep(FILE_POLL_INTERVAL_SECONDS)
-        uploaded = client.files.get(name=uploaded.name)
-    if _state_name(uploaded) == "FAILED":
-        raise ValueError("file processing failed")
+    try:
+        deadline = time.monotonic() + FILE_PROCESSING_TIMEOUT_SECONDS
+        while _state_name(uploaded) == "PROCESSING":
+            if time.monotonic() > deadline:
+                raise TimeoutError("file processing timed out")
+            time.sleep(FILE_POLL_INTERVAL_SECONDS)
+            uploaded = client.files.get(name=uploaded.name)
+        if _state_name(uploaded) == "FAILED":
+            raise ValueError("file processing failed")
+    except Exception:
+        delete_uploaded_file(client, uploaded)
+        raise
     return uploaded
 
 

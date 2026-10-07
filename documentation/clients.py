@@ -12,7 +12,7 @@ from config import REPORT_MODEL, REPORT_TEMPERATURE
 from errors import ReportGenerationError
 from utils.gemini import create_client, simplify_schema, translate_error
 
-MOCK_ANALYSIS_PATH = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "mock_model_report.json"
+MOCK_ANALYSIS_PATH = Path(__file__).resolve().parent.parent / "sample_data" / "mock_model_report.json"
 
 
 class ReportModelClient(Protocol):

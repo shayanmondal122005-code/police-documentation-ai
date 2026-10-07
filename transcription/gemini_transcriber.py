@@ -11,6 +11,7 @@ Two engines share the `Transcriber` interface:
 from __future__ import annotations
 
 import re
+import math
 from pathlib import Path
 from typing import Any
 
@@ -146,21 +147,28 @@ def format_offset(offset: str | None) -> str | None:
         seconds = float(str(offset).strip().rstrip("s"))
     except ValueError:
         return None
+    if not math.isfinite(seconds) or seconds < 0:
+        return None
     minutes, secs = divmod(seconds, 60)
     return f"{int(minutes):02d}:{secs:04.1f}"
 
 
 def _segment_from_part(part: Any) -> TranscriptSegment | None:
     transcription = getattr(part, "audio_transcription", None)
-    if transcription is None or not (transcription.text or "").strip():
+    if transcription is None:
         return None
-    words = transcription.words or []
+    words = getattr(transcription, "words", None) or []
+    text = (getattr(transcription, "text", None) or "").strip()
+    if not text:
+        text = " ".join((getattr(word, "word", None) or "").strip() for word in words).strip()
+    if not text:
+        return None
     return TranscriptSegment(
-        speaker=transcription.speaker_label or None,
-        text=transcription.text.strip(),
+        speaker=getattr(transcription, "speaker_label", None) or None,
+        text=text,
         start_time=format_offset(words[0].start_offset) if words else None,
         end_time=format_offset(words[-1].end_offset) if words else None,
-        language=transcription.language_code,
+        language=getattr(transcription, "language_code", None),
     )
 
 
@@ -174,6 +182,11 @@ def parse_asr_response(response: Any, model: str, with_timestamps: bool, with_sp
     for candidate in getattr(response, "candidates", None) or []:
         parts.extend(getattr(getattr(candidate, "content", None), "parts", None) or [])
     segments = [seg for seg in (_segment_from_part(p) for p in parts) if seg]
+    for segment in segments:
+        if not with_timestamps:
+            segment.start_time = segment.end_time = None
+        if not with_speakers:
+            segment.speaker = None
 
     if segments:
         raw = "\n".join(s.text for s in segments)

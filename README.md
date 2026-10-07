@@ -94,18 +94,58 @@ transcript. Nothing is sent anywhere.
 ## Running
 
 ```bash
-streamlit run app.py
+python run_app.py
 ```
 
 The server binds to `localhost` only and Streamlit telemetry is disabled (`.streamlit/config.toml`).
 
+Open http://localhost:8501. Without a key, the app starts in **Try fictional demo** mode:
+click **Generate demo report** to explore all six report tabs with the built-in sample.
+No recording is needed and this mode makes no Gemini requests. To process your own
+recording, choose **Upload audio** and configure a Gemini key.
+
+Edit the report and correction notes, then confirm that you have reviewed the draft
+to enable report downloads. Editing again resets that confirmation. A failed new
+generation preserves the previous report and your edits. **Start new report** clears
+the recording, report, review and case details from the current app session.
+
+### Streamlit Community Cloud (demo hosting)
+
+Select this repository, branch and `app.py` as the entry point. Configure Python 3.12.
+For Gemini, add this in the app's server-side **Secrets** settings:
+
+```toml
+GEMINI_API_KEY = "your-key-here"
+```
+
+Locally, the same entry can go in `.streamlit/secrets.toml` (git-ignored). An environment
+or `.env` key takes priority. The app never stores the key in report/session data.
+Without a key, the fictional demo remains usable. Any shared deployment is for
+non-sensitive demos only: this MVP still has no authentication or access control.
+
+### Docker (local demo)
+
+```bash
+docker build -t police-documentation-ai .
+docker run --rm -p 127.0.0.1:8501:8501 --env-file .env police-documentation-ai
+```
+
+Omit `--env-file .env` for the offline demo. The container runs as a non-root user,
+excludes secrets and recordings from its build context, and includes a health check.
+The Docker image has not been built in the development environment; the Python app
+and its health endpoint have been tested directly.
+
 ## Testing
 
 ```bash
-pytest
+pip install -r requirements-dev.txt
+python -m pytest
 ```
 
 Tests never call the real Gemini API; the Gemini layer is mocked.
+The suite includes Streamlit AppTest coverage for demo generation, review/download
+state, reset, and preserving an edited report after a failed request. GitHub Actions
+runs these checks on pushes and pull requests.
 
 ## Supported audio formats
 

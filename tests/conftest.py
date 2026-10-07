@@ -11,7 +11,7 @@ from documentation.schemas import ModelReport
 from integrity.hashing import RecordingIntegrity
 from transcription.base import TranscriptResult
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parent.parent / "sample_data"
 
 
 @pytest.fixture
