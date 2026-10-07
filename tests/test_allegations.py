@@ -90,8 +90,8 @@ def test_genuine_facts_are_left_alone():
 def test_end_to_end_allegation_and_belief_stay_separate_from_facts(mock_transcript, integrity, mock_analysis_json):
     report = generate_report(mock_transcript, integrity, SequenceClient(mock_analysis_json))
     markdown = report_to_markdown(report)
-    allegations = markdown.split("## 7. Allegations / Claims")[1].split("## 8.")[0]
-    facts = markdown.split("## 6. Explicitly Stated Facts")[1].split("## 7.")[0]
+    allegations = markdown.split("## 7. Allegations and Claims")[1].split("## 8.")[0]
+    facts = markdown.split("## 6. Information Reported")[1].split("## 7.")[0]
     assert "Speaker 2 alleged that Rahul took their phone." in allegations
     assert "Rahul took" not in facts
     assert "Rahul was there" not in markdown

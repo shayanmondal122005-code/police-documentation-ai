@@ -207,6 +207,9 @@ class AdministrativeInfo(BaseModel):
 
     case_reference: str | None = None
     officer: str | None = None
+    officer_rank: str | None = None
+    police_station: str | None = None
+    district: str | None = None
     date: str | None = None
     time: str | None = None
     location: str | None = None

@@ -35,6 +35,23 @@ def test_demo_review_downloads_and_reset(monkeypatch):
     assert not app.exception
     assert "result" not in app.session_state
     assert app.text_input(key="officer").value == ""
+    assert app.text_input(key="police_station").value == ""
+    assert app.text_input(key="district").value == ""
+    assert app.text_input(key="officer_rank").value == ""
+
+
+def test_professional_report_preview_and_station_details(monkeypatch):
+    app = demo_app(monkeypatch)
+    app.text_input(key="police_station").set_value("Sample Station")
+    app.text_input(key="district").set_value("Sample District")
+    app.text_input(key="officer_rank").set_value("Sub Inspector").run()
+    app.button[0].click().run()
+    report = app.session_state["result"].report
+    assert report.admin.police_station == "Sample Station"
+    assert report.admin.district == "Sample District"
+    assert report.admin.officer_rank == "Sub Inspector"
+    assert any("## 2. Incident Narrative" in block.value for block in app.markdown)
+    assert any(expander.label == "Edit report text" for expander in app.expander)
 
 
 def test_failed_generation_preserves_previous_report_and_edits(monkeypatch):

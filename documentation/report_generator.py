@@ -37,6 +37,9 @@ def build_admin_info(
     date: str | None = None,
     time: str | None = None,
     location: str | None = None,
+    officer_rank: str | None = None,
+    police_station: str | None = None,
+    district: str | None = None,
 ) -> AdministrativeInfo:
     """Merge officer-entered metadata with details the recording explicitly states.
 
@@ -63,6 +66,9 @@ def build_admin_info(
     return AdministrativeInfo(
         case_reference=_clean(case_reference),
         officer=_clean(officer),
+        officer_rank=_clean(officer_rank),
+        police_station=_clean(police_station),
+        district=_clean(district),
         recording_filename=integrity.filename,
         recording_duration=duration,
         recording_id=integrity.recording_id,
@@ -109,6 +115,9 @@ def generate_report(
     date: str | None = None,
     time: str | None = None,
     location: str | None = None,
+    officer_rank: str | None = None,
+    police_station: str | None = None,
+    district: str | None = None,
 ) -> PoliceReport:
     """Generate the full PoliceReport from a transcript."""
     if not transcript.raw_transcript.strip():
@@ -116,7 +125,8 @@ def generate_report(
     analysis = request_analysis(transcript, client)
     flags = run_guardrails(analysis, transcript)
     return PoliceReport(
-        admin=build_admin_info(analysis, integrity, duration, case_reference, officer, date, time, location),
+        admin=build_admin_info(analysis, integrity, duration, case_reference, officer, date, time, location,
+                              officer_rank, police_station, district),
         analysis=analysis,
         transcript_meta=TranscriptMeta(
             engine=transcript.engine,

@@ -20,10 +20,10 @@ def test_mock_pipeline_generates_complete_report(mock_transcript, integrity):
     assert report.review_flags == []  # mock quotes are all verbatim
     assert len(report.analysis.timeline) == 7
     markdown = report_to_markdown(report)
-    for heading in ("Purpose of Interaction", "Executive Summary", "Persons Present", "Chronological Timeline",
-                    "Important Statements", "Explicitly Stated Facts", "Allegations / Claims",
-                    "Contradictions / Potential Inconsistencies", "Unresolved Questions", "Follow-up Actions",
-                    "Evidence / Material Mentioned", "Uncertainty / Transcription Notes"):
+    for heading in ("Purpose of Interaction", "Incident Narrative", "Persons Present or Referred To", "Chronological Account",
+                    "Material Statements", "Information Reported", "Allegations and Claims",
+                    "Potential Inconsistencies", "Matters Requiring Verification", "Proposed Follow-up Actions",
+                    "Evidence and Material Mentioned", "Reliability and Review Notes", "Annexure A", "Annexure B"):
         assert heading in markdown
     assert "AI-GENERATED DRAFT — REQUIRES OFFICER REVIEW" in markdown
     assert integrity.sha256 in markdown

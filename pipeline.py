@@ -44,6 +44,9 @@ class ReportMetadata:
     date: str = ""
     time: str = ""
     location: str = ""
+    officer_rank: str = ""
+    police_station: str = ""
+    district: str = ""
 
 
 @dataclass
@@ -127,6 +130,9 @@ def run_pipeline(
             date=metadata.date,
             time=metadata.time,
             location=metadata.location,
+            officer_rank=metadata.officer_rank,
+            police_station=metadata.police_station,
+            district=metadata.district,
         )
     finally:
         # Both engines share one request-scoped client; never keep connections alive across reports.

@@ -48,6 +48,10 @@ def metadata_form() -> ReportMetadata:
     left, right = st.columns(2)
     case_reference = left.text_input("Case Reference", key="case_reference")
     officer = right.text_input("Officer", key="officer")
+    with st.expander("Police station and officer details"):
+        police_station = st.text_input("Police station", key="police_station")
+        district = st.text_input("District", key="district")
+        officer_rank = st.text_input("Officer rank / designation", key="officer_rank")
     date_value = left.date_input("Date", value=None, key="date")
     time_value = right.time_input("Time", value=None, key="time")
     location = st.text_input("Location", key="location")
@@ -58,6 +62,9 @@ def metadata_form() -> ReportMetadata:
         date=date_value.isoformat() if date_value else "",
         time=time_value.strftime("%H:%M") if time_value else "",
         location=location,
+        police_station=police_station,
+        district=district,
+        officer_rank=officer_rank,
     )
 
 
@@ -148,7 +155,8 @@ def process(filename: str, data: bytes, engine: str, options: TranscriptionOptio
 def reset_report() -> None:
     """Clear the report, uploaded audio, metadata and review together before rerender."""
     for key in ("result", "prepared", "report_text", "officer_review", "review_confirmed",
-                "recording", "case_reference", "officer", "date", "time", "location", "opt_ts", "opt_spk"):
+                "recording", "case_reference", "officer", "date", "time", "location", "opt_ts", "opt_spk",
+                "police_station", "district", "officer_rank"):
         st.session_state.pop(key, None)
 
 
@@ -162,8 +170,10 @@ def invalidate_review() -> None:
 def report_tab(result: PipelineResult) -> None:
     ui.draft_banner()
     ui.render_review_flags(result.report)
-    st.markdown("**Edit the report below before export.** The warning banner is always re-added on export.")
-    st.text_area("Report text (Markdown)", key="report_text", height=420, on_change=invalidate_review)
+    st.caption("Professional field-interaction report. Review the narrative and source annexures before export.")
+    with st.expander("Edit report text"):
+        st.text_area("Report text (Markdown)", key="report_text", height=420, on_change=invalidate_review)
+    st.markdown(st.session_state["report_text"])
     st.text_area(
         "Officer Review / Corrections",
         key="officer_review",

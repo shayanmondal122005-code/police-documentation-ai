@@ -87,7 +87,11 @@ Groq offers a free plan with request, token and audio quotas. Exact limits belon
 
 The six tabs show **REPORT**, **TRANSCRIPT**, **TIMELINE**, **STATEMENTS**, **EVIDENCE** and **METADATA**. Metadata records the transcription and report models. The complete raw transcript is shown and downloadable independently of the report.
 
-Edit the report and officer correction notes, then confirm review to enable Markdown, TXT, DOCX and PDF downloads. Editing again clears the confirmation. A failed new request preserves the previous report and edits. **Start new report** resets the recording, metadata, report and review in the current session.
+The **REPORT** tab displays a professional field-interaction report with administrative details, an incident narrative, material chronology, attributed statements, evidence mentioned and proposed verification steps. Optional police station, district and officer rank/designation fields are entered by the officer and are never inferred. The model writes formal English narrative while preserving original-language quotes.
+
+Verbatim excerpts appear once in **Annexure A**, with stable references such as `[R01]` in the main report; unverified excerpts remain flagged in both places. Recording details and the SHA-256 hash appear in **Annexure B**. Mentioned persons are not automatically treated as present; proposed actions are distinguished from completed actions. This is a field-interaction draft, not a statutory FIR template.
+
+Open **Edit report text** for corrections, add officer review notes, then confirm review to enable Markdown, TXT, DOCX and PDF downloads. Word exports use formal black headings, readable typography, a centered title, page numbers and officer sign-off fields. Editing again clears the confirmation. A failed new request preserves the previous report and edits. **Start new report** resets the recording, metadata, report and review in the current session.
 
 DOCX supports Hindi text. PDF export is refused for Devanagari because the current ReportLab implementation cannot shape it correctly; use DOCX instead.
 

@@ -44,6 +44,23 @@ innocence; call anyone a liar; state criminal intent as fact; infer emotions as 
 uncertainty; recommend punishment; give legal conclusions.
 Use conservative wording such as "The speaker appears to state ...", "Unclear from recording".
 
+PROFESSIONAL REPORT STYLE
+- Write analysis in formal, plain English suitable for an officer's field-interaction report.
+  Keep verbatim source quotes in their original language; never correct uncertain speech.
+- executive_summary: write 1-3 connected paragraphs describing the material interaction,
+  reported incident (if any), persons referred to, and matters requiring verification.
+  Use attributed wording such as "The speaker reported...". Do not produce a dialogue log,
+  a marketing summary, or a sentence-by-sentence restatement of the transcript.
+- timeline: include only material developments in chronological order. Combine repetitive
+  exchanges when supported; keep unrelated passages separate and preserve available sources.
+- statements: select material statements only. Paraphrase their substance in formal English;
+  put exact original wording in source.quote. Do not duplicate every utterance.
+- Distinguish persons mentioned from persons actually present. A name being mentioned alone
+  does not establish attendance, identity, or a complainant/witness/suspect role.
+- If the recording does not establish a police incident, say so cautiously. Never invent
+  an offence, FIR number, statutory section, arrest, seizure, investigation or police action.
+- follow_up_actions are proposed verification steps, not actions already performed.
+
 SECTIONS
 - purpose: stated_purpose (only if explicitly stated) and inferred_purpose (hedged) are separate.
   Set basis to "directly stated", "inferred" or "unclear from recording".
@@ -51,7 +68,7 @@ SECTIONS
 - persons: only people actually present or referred to. Use "Unknown Person" when unnamed. Do not
   guess roles or relationships.
 - timeline: important events in order. Use null times unless markers exist.
-- statements: significant statements with speaker, exact statement and classification.
+- statements: significant attributed statements with speaker, substance and classification.
 - evidence: only material actually mentioned (CCTV, phones, numbers, vehicles, registration
   plates, documents, weapons, objects, locations, other recordings, photographs, messages, etc.).
 - unresolved_questions: important unanswered questions arising from the recording only.

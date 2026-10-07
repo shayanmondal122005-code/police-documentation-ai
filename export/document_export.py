@@ -35,6 +35,7 @@ def compose_document(report_markdown: str, officer_review: str = "") -> str:
         f"## {OFFICER_REVIEW_HEADING}\n\n"
         f"{review}\n\n"
         "- Reviewing officer: ______________________\n"
+        "- Rank / designation: ______________________\n"
         "- Date reviewed: ______________________\n"
         "- Signature: ______________________\n\n"
         f"> **{AI_DRAFT_WARNING}**\n>\n> {HASH_DISCLAIMER}\n>\n> {PRIVACY_NOTICE}\n"
@@ -139,32 +140,74 @@ def export_docx(document: str) -> bytes:
     try:
         from docx import Document
         from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
-        from docx.shared import Pt, RGBColor
+        from docx.shared import Inches, Pt, RGBColor
 
         doc = Document()
         normal = doc.styles["Normal"]
-        normal.font.name = "Calibri"
-        normal.font.size = Pt(10.5)
+        normal.font.name = "Times New Roman"
+        normal.font.size = Pt(12)
+        normal.font.color.rgb = RGBColor(0, 0, 0)
         normal.element.rPr.rFonts.set(qn("w:cs"), "Nirmala UI")  # complex-script (Devanagari) font
+        normal.paragraph_format.space_after = Pt(6)
+        normal.paragraph_format.line_spacing = 1.15
+        normal.paragraph_format.widow_control = True
+        for name, size in (("Title", 16), ("Heading 1", 12)):
+            style = doc.styles[name]
+            style.font.name = "Times New Roman"
+            style.font.size = Pt(size)
+            style.font.bold = True
+            style.font.color.rgb = RGBColor(0, 0, 0)
+            fonts = style.element.rPr.rFonts
+            for attribute in list(fonts.attrib):
+                if "theme" in attribute.lower():
+                    del fonts.attrib[attribute]
+            fonts.set(qn("w:cs"), "Nirmala UI")
+            for border in list(style.element.findall(".//" + qn("w:pBdr"))):
+                border.getparent().remove(border)
+            style.paragraph_format.space_before = Pt(12)
+            style.paragraph_format.space_after = Pt(6)
+            style.paragraph_format.keep_with_next = True
+            style.paragraph_format.keep_together = True
+        doc.styles["Title"].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        section = doc.sections[0]
+        section.top_margin = section.bottom_margin = Inches(0.8)
+        section.left_margin = section.right_margin = Inches(0.9)
+        section.header_distance = section.footer_distance = Inches(0.35)
 
         header = doc.sections[0].header.paragraphs[0]
         header.alignment = WD_ALIGN_PARAGRAPH.CENTER
         warn = header.add_run(AI_DRAFT_WARNING)
         warn.bold = True
-        warn.font.color.rgb = RGBColor(0x9B, 0x1C, 0x1C)
+        warn.font.size = Pt(8)
+        warn.font.color.rgb = RGBColor(0, 0, 0)
+        footer = section.footer.paragraphs[0]
+        footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        footer.add_run("Page ").font.size = Pt(9)
+        page_number = OxmlElement("w:fldSimple")
+        page_number.set(qn("w:instr"), "PAGE")
+        footer._p.append(page_number)
 
+        in_review = False
         for block in parse_blocks(document):
             if block.kind == "h1":
                 doc.add_heading(strip_inline(block.text), level=0)
                 continue
             if block.kind == "h2":
                 doc.add_heading(strip_inline(block.text), level=1)
+                in_review = strip_inline(block.text) == OFFICER_REVIEW_HEADING
                 continue
             style = "List Bullet 2" if block.kind == "bullet" and block.indent else (
                 "List Bullet" if block.kind == "bullet" else None
             )
             paragraph = doc.add_paragraph(style=style)
+            if in_review and block.kind != "quote":
+                paragraph.paragraph_format.keep_with_next = not block.text.startswith("Signature:")
+            if block.kind == "quote":
+                in_review = False
+            if block.kind == "para":
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             if block.kind == "quote":
                 paragraph.paragraph_format.left_indent = Pt(12)
             for line_no, line in enumerate(block.text.split("\n")):
@@ -172,12 +215,13 @@ def export_docx(document: str) -> bytes:
                     paragraph.add_run().add_break()
                 for token_style, token in _tokens(line):
                     run = paragraph.add_run(token)
-                    run.bold = token_style == "bold" or block.kind == "quote"
+                    run.bold = token_style == "bold"
                     run.italic = token_style == "italic"
                     if token_style == "code":
                         run.font.name = "Consolas"
                     if block.kind == "quote":
-                        run.font.color.rgb = RGBColor(0x9B, 0x1C, 0x1C)
+                        run.font.size = Pt(10)
+                        run.font.color.rgb = RGBColor(0, 0, 0)
         buffer = io.BytesIO()
         doc.save(buffer)
         return buffer.getvalue()
@@ -212,8 +256,16 @@ def export_pdf(document: str) -> bytes:
         from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
         styles = getSampleStyleSheet()
-        body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=9.5, leading=13)
-        quote = ParagraphStyle("quote", parent=body, textColor=colors.HexColor("#9B1C1C"), leftIndent=8)
+        styles["Title"].fontName = "Times-Bold"
+        styles["Title"].fontSize = 16
+        styles["Title"].leading = 20
+        styles["Title"].textColor = colors.black
+        styles["Heading2"].fontName = "Times-Bold"
+        styles["Heading2"].fontSize = 12
+        styles["Heading2"].leading = 16
+        styles["Heading2"].textColor = colors.black
+        body = ParagraphStyle("body", parent=styles["BodyText"], fontName="Times-Roman", fontSize=11, leading=15, spaceAfter=5)
+        quote = ParagraphStyle("quote", parent=body, textColor=colors.black, leftIndent=8)
         bullet = ParagraphStyle("bullet", parent=body, leftIndent=14, bulletIndent=4)
         bullet2 = ParagraphStyle("bullet2", parent=bullet, leftIndent=28, bulletIndent=18)
 
@@ -244,7 +296,7 @@ def export_pdf(document: str) -> bytes:
         def decorate(canvas, doc) -> None:  # noqa: ANN001 - ReportLab callback signature
             canvas.saveState()
             canvas.setFont("Helvetica-Bold", 8)
-            canvas.setFillColor(colors.HexColor("#9B1C1C"))
+            canvas.setFillColor(colors.black)
             canvas.drawCentredString(A4[0] / 2, A4[1] - 10 * mm, AI_DRAFT_WARNING)
             canvas.setFillColor(colors.grey)
             canvas.drawCentredString(A4[0] / 2, 8 * mm, f"Page {doc.page}")
