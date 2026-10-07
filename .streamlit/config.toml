@@ -1,5 +1,5 @@
 [server]
-maxUploadSize = 200
+maxUploadSize = 25
 enableXsrfProtection = true
 headless = true
 # Bind to this machine only; recordings are sensitive.

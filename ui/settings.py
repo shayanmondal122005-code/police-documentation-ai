@@ -4,7 +4,7 @@ import os
 
 import streamlit as st
 
-from config import GeminiModels, get_api_key
+from config import API_KEY_ENV_VAR, GroqModels, get_api_key
 
 
 def app_api_key() -> str | None:
@@ -12,7 +12,7 @@ def app_api_key() -> str | None:
     if key:
         return key
     try:
-        value = st.secrets.get("GEMINI_API_KEY", "")
+        value = st.secrets.get(API_KEY_ENV_VAR, "")
     except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
         return None
     if not isinstance(value, str):
@@ -30,12 +30,10 @@ def _model_setting(name: str, default: str) -> str:
     return value.strip() if isinstance(value, str) else default
 
 
-def app_models() -> GeminiModels:
+def app_models() -> GroqModels:
     """Read model overrides per request from env first, then Streamlit Secrets."""
-    defaults = GeminiModels()
-    return GeminiModels(
-        prompted=_model_setting("GEMINI_TRANSCRIPTION_MODEL", defaults.prompted) or defaults.prompted,
-        asr=_model_setting("GEMINI_ASR_MODEL", defaults.asr) or defaults.asr,
-        report=_model_setting("GEMINI_REPORT_MODEL", defaults.report) or defaults.report,
-        fallback=_model_setting("GEMINI_FALLBACK_MODEL", defaults.fallback),
+    defaults = GroqModels()
+    return GroqModels(
+        transcription=_model_setting("GROQ_TRANSCRIPTION_MODEL", defaults.transcription) or defaults.transcription,
+        report=_model_setting("GROQ_REPORT_MODEL", defaults.report) or defaults.report,
     )

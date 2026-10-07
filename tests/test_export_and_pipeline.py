@@ -4,7 +4,7 @@ import wave
 import pytest
 from docx import Document
 
-from config import AI_DRAFT_WARNING, ENGINE_ASR, ENGINE_MOCK, ENGINE_PROMPTED
+from config import AI_DRAFT_WARNING, ENGINE_GROQ, ENGINE_MOCK
 from documentation.clients import MockReportClient
 from documentation.render import report_to_markdown
 from documentation.report_generator import generate_report
@@ -99,10 +99,10 @@ def test_export_filename_is_sanitised():
 
 
 def test_exports_never_contain_api_key(monkeypatch, report):
-    monkeypatch.setenv("GEMINI_API_KEY", "AIza-SECRET-VALUE-123")
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-SECRET-VALUE-123")
     document = compose_document(report_to_markdown(report))
-    assert "AIza-SECRET-VALUE-123" not in document
-    assert b"AIza-SECRET-VALUE-123" not in export_docx(document)
+    assert "gsk-SECRET-VALUE-123" not in document
+    assert b"gsk-SECRET-VALUE-123" not in export_docx(document)
 
 
 # ------------------------------------------------------------------ audio utilities
@@ -110,7 +110,7 @@ def test_exports_never_contain_api_key(monkeypatch, report):
 
 @pytest.mark.parametrize(
     "name, size, error",
-    [("a.ogg", 10, UnsupportedFileError), ("noext", 10, UnsupportedFileError), ("a.wav", 0, EmptyFileError),
+    [("a.aiff", 10, UnsupportedFileError), ("noext", 10, UnsupportedFileError), ("a.wav", 0, EmptyFileError),
      ("a.wav", 10**10, FileTooLargeError)],
 )
 def test_validate_upload_rejects_bad_files(name, size, error):
@@ -118,7 +118,7 @@ def test_validate_upload_rejects_bad_files(name, size, error):
         validate_upload(name, size)
 
 
-@pytest.mark.parametrize("name", ["a.mp3", "a.WAV", "a.m4a", "a.mp4", "a.mpeg", "a.webm"])
+@pytest.mark.parametrize("name", ["a.mp3", "a.WAV", "a.m4a", "a.mp4", "a.mpeg", "a.webm", "a.flac", "a.ogg", "a.mpga"])
 def test_validate_upload_accepts_supported_formats(name):
     assert validate_upload(name, 100)
 
@@ -147,7 +147,7 @@ def test_temp_audio_file_is_removed_even_on_error():
 
 
 def test_mock_pipeline_runs_end_to_end_without_api_key(monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     steps = []
     result = run_pipeline(
         "demo.wav", make_wav(), ENGINE_MOCK, TranscriptionOptions(), ReportMetadata(officer="SI Verma", case_reference="C-1"),
@@ -177,12 +177,11 @@ def test_pipeline_rejects_invalid_uploads_before_any_processing():
         run_pipeline("a.txt", b"x", ENGINE_MOCK, TranscriptionOptions(), ReportMetadata())
 
 
-@pytest.mark.parametrize("engine", [ENGINE_PROMPTED, ENGINE_ASR])
-def test_gemini_engines_require_api_key(monkeypatch, engine):
+def test_groq_engine_requires_api_key(monkeypatch):
     monkeypatch.setattr("pipeline.get_api_key", lambda: None)
     with pytest.raises(ConfigurationError) as info:
-        build_engines(engine)
-    assert "GEMINI_API_KEY" in info.value.user_message
+        build_engines(ENGINE_GROQ)
+    assert "GROQ_API_KEY" in info.value.user_message
 
 
 def test_unknown_engine_is_rejected(monkeypatch):

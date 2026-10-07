@@ -12,11 +12,9 @@ import streamlit as st
 
 from config import (
     APP_NAME,
-    ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES,
-    ENGINE_ASR,
     ENGINE_LABELS,
     ENGINE_MOCK,
-    ENGINE_PROMPTED,
+    ENGINE_GROQ,
     SUPPORTED_EXTENSIONS,
 )
 from errors import ExportError, UserFacingError
@@ -34,7 +32,7 @@ from ui import components as ui
 from ui.styles import APP_CSS
 from ui.settings import app_api_key, app_models
 from utils.audio import playback_mime
-from utils.gemini import check_model_connection
+from utils.groq import check_model_connection
 
 logger = logging.getLogger(__name__)
 
@@ -65,47 +63,41 @@ def metadata_form() -> ReportMetadata:
 
 def engine_options() -> tuple[str, TranscriptionOptions]:
     st.subheader("Transcription")
-    engine = st.selectbox(
-        "Engine",
-        options=[ENGINE_PROMPTED, ENGINE_ASR, ENGINE_MOCK],
-        format_func=ENGINE_LABELS.get,
-        key="engine",
-    )
-    options = TranscriptionOptions()
-    if engine == ENGINE_ASR:
-        options.with_timestamps = st.checkbox("Word timestamps (may reduce accuracy)", value=True, key="opt_ts")
-        options.with_speakers = st.checkbox("Speaker labels (3+ speakers is experimental)", value=True, key="opt_spk")
-        if options.with_timestamps or options.with_speakers:
-            st.caption(f"With timestamps or speaker labels, the ASR model accepts at most "
-                       f"{ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES} minutes of audio.")
-    elif engine == ENGINE_PROMPTED:
-        st.caption("Uses Hindi/Bhojpuri-aware instructions. Speaker labels and times are model-reported and unverified.")
-    else:
-        st.caption("Demo only: ignores the uploaded audio and uses a fictional transcript. Nothing is sent to Google.")
-    if engine != ENGINE_MOCK and not app_api_key():
-        st.info("To process audio, set GEMINI_API_KEY in .env or Streamlit Secrets. You can try the fictional demo without a key.")
-    if engine != ENGINE_MOCK:
-        with st.expander("Gemini connection and model settings"):
+    # Old provider selections must not survive the deployment migration.
+    if st.session_state.get("engine") not in (None, ENGINE_GROQ, ENGINE_MOCK):
+        st.session_state.pop("engine", None)
+    engine = st.selectbox("Engine", options=[ENGINE_GROQ, ENGINE_MOCK],
+                          format_func=ENGINE_LABELS.get, key="engine")
+    options = TranscriptionOptions(with_speakers=False)
+    if engine == ENGINE_GROQ:
+        options.with_timestamps = st.checkbox("Segment timestamps", value=True, key="opt_ts")
+        st.caption("Whisper transcribes in the original language. Speaker labels are unavailable; verify Hindi/Bhojpuri wording against the recording.")
+        key = app_api_key()
+        if not key:
+            st.info("Set GROQ_API_KEY in .env or Streamlit Secrets to process audio. Create your key at https://console.groq.com/keys.")
+        with st.expander("Groq connection and model settings"):
             models = app_models()
-            st.write(f"Transcription: {models.asr if engine == ENGINE_ASR else models.prompted}")
-            st.write(f"Report: {models.report}. Flash fallback: {models.fallback or 'disabled'}.")
-            st.caption("Model overrides can be set in Streamlit Secrets or .env. If dedicated ASR is unavailable, select the prompted engine above.")
-            st.caption("This check sends a short text request to the report model. It does not test audio transcription.")
-            if st.button("Test Gemini connection", disabled=not app_api_key(), key="check_gemini"):
+            st.write(f"Transcription: {models.transcription}. Report: {models.report}.")
+            st.caption("Optional overrides: GROQ_TRANSCRIPTION_MODEL and GROQ_REPORT_MODEL. Groq Console controls model access and API limits.")
+            st.caption("This check sends a short text/JSON request to the report model. Audio transcription needs a recording test.")
+            if st.button("Test Groq connection", disabled=not key, key="check_groq"):
                 try:
-                    with st.spinner("Checking Gemini…"):
-                        check_model_connection(app_api_key(), models.report)
-                    st.success("Gemini answered the text request. Audio transcription has not been tested.")
+                    with st.spinner("Checking Groq…"):
+                        check_model_connection(key, models)
+                    st.success("Groq answered the report-model request. Audio transcription has not been tested.")
                 except UserFacingError as exc:
                     st.error(exc.user_message)
                 except Exception as exc:
                     logger.error("Unexpected connection check error: %s", type(exc).__name__)
                     st.error("The connection check failed unexpectedly. No sensitive details are shown.")
+    else:
+        st.caption("Demo only: ignores the uploaded audio and uses a fictional transcript. Nothing is sent to Groq.")
     return engine, options
 
 
 def upload_section() -> tuple[str, bytes] | None:
     st.subheader("Upload Recording")
+    st.caption("Maximum 25 MB. Start with a short, non-sensitive WAV or MP3 recording.")
     uploaded = st.file_uploader(
         "Drag & drop a recording", type=list(SUPPORTED_EXTENSIONS), key="recording", accept_multiple_files=False
     )
@@ -272,7 +264,7 @@ def main() -> None:
                       index=0 if app_api_key() else 1, horizontal=True, key="source")
     if source == "Try fictional demo":
         engine, options = ENGINE_MOCK, TranscriptionOptions()
-        st.info("Try the full review and export flow with a fictional Hindi/Bhojpuri transcript. No API key or upload is needed, and nothing is sent to Google.")
+        st.info("Try the full review and export flow with a fictional Hindi/Bhojpuri transcript. No API key or upload is needed, and nothing is sent to Groq.")
         upload = demo_recording()
         _mime, integrity, duration = prepare_recording(*upload)
         st.session_state["prepared"] = {"file_id": "demo", "integrity": integrity, "duration": duration}

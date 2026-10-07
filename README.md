@@ -1,268 +1,139 @@
 # Police Documentation AI
 
-A police officer uploads an audio recording of a field interaction. The app transcribes it,
-extracts a structured, evidence-aware analysis, and produces a **draft** *Police Field
-Interaction Report* that the officer reviews, edits and exports.
+A Streamlit MVP that turns an uploaded recording into an **AI-generated draft** field-interaction report for officer review. It now uses **Groq for both transcription and report generation**. Gemini credentials are no longer used.
 
-> **AI-GENERATED DRAFT — REQUIRES OFFICER REVIEW**
-> Output is never an official police record. This is an MVP and is **not production-ready for
-> real police evidence** (see [Security limitations](#security-limitations)).
+**Not production-ready for real police evidence.** Reports require review against the original recording. This app has no authentication, access control or forensic chain-of-custody system.
 
-This is not a generic meeting summariser. It keeps *facts*, *allegations*, *beliefs*, *hearsay*
-and *uncertainty* distinct, never invents timestamps or speakers, and links every extracted
-item back to a transcript quote that the code verifies.
+## Quick start
 
-## Architecture
-
-```
-Streamlit UI (app.py, ui/)
-   ↓
-Audio upload → validation → streaming SHA-256 → Recording ID        (utils/audio.py, integrity/)
-   ↓
-Gemini transcription  (or Mock)                                      (transcription/)
-   ↓
-Structured transcript  (raw text kept separately; times/speakers only if real)
-   ↓
-Gemini report generation  (JSON-schema structured output)            (documentation/)
-   ↓
-Pydantic validation (+ one guided retry) → deterministic guardrails
-   ↓
-Officer review / edit (Markdown + Officer Review section)
-   ↓
-Export: Markdown · TXT · DOCX · PDF (Latin text only)                (export/)
-```
-
-| Path | Responsibility |
-|---|---|
-| `app.py`, `ui/` | Streamlit interface and session state |
-| `pipeline.py` | Orchestrates upload → transcript → report (no Streamlit imports) |
-| `config.py` | Model names, limits, formats, timeouts, notices |
-| `transcription/` | `Transcriber` interface, Gemini engines, mock engine |
-| `documentation/` | Pydantic schemas, report generator, guardrails, Markdown renderer, model clients |
-| `prompts/` | Transcription and analysis prompts (single source each) |
-| `integrity/` | SHA-256 hashing and deterministic Recording ID |
-| `export/` | Markdown/TXT/DOCX/PDF export |
-| `docs/GEMINI_API_RESEARCH.md` | Dated research on the current Gemini API and its limits |
-
-## Installation
-
-Requires Python 3.11+.
+Python 3.12 is tested.
 
 ```bash
 python -m venv .venv
-```
-
-Activate the environment:
-
-* **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
-* **Windows (cmd):** `.venv\Scripts\activate.bat`
-* **Linux / macOS:** `source .venv/bin/activate`
-
-```bash
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Environment setup
-
-Copy `.env.example` to `.env` and set your key. `.env` is git-ignored and must never be committed.
-
-```
-GEMINI_API_KEY=your-key-here
-```
-
-Optional overrides (defaults are in `config.py`): `GEMINI_TRANSCRIPTION_MODEL`,
-`GEMINI_ASR_MODEL`, `GEMINI_REPORT_MODEL`, `GEMINI_FALLBACK_MODEL`. These can also
-be set in Streamlit Secrets; environment values take priority.
-
-## Gemini API setup
-
-1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. Put it in `.env` as `GEMINI_API_KEY`. The app uses the official `google-genai` SDK
-   (`from google import genai`) and passes the key explicitly.
-3. Models (verified against Google's documentation on 2026-10-07; see
-   [`docs/GEMINI_API_RESEARCH.md`](docs/GEMINI_API_RESEARCH.md)):
-   * Prompted transcription and report generation: `gemini-3.8-flash`
-   * Optional dedicated ASR (speaker labels, word timestamps): `gemini-3.5-transcribe`
-   * Flash fallback on HTTP 500/502/503: `gemini-3.7-flash`
-
-> **Not yet verified live.** The Gemini integration was built from the official documentation and
-> SDK types and is tested against a mocked Gemini layer. It has not been run against the live
-> service, and Hindi/Bhojpuri accuracy has not been measured. Do a first run with a harmless
-> recording before relying on it.
-
-No API key? Choose the **Mock** engine in the UI to run the whole pipeline locally on a fictional
-transcript. Nothing is sent anywhere.
-
-## Running
-
-```bash
+cp .env.example .env
 python run_app.py
 ```
 
-The server binds to `localhost` only and Streamlit telemetry is disabled (`.streamlit/config.toml`).
+On Windows, activate with `.venv\Scripts\activate` and copy `.env.example` to `.env` using your editor or file manager.
 
-Open http://localhost:8501. Without a key, the app starts in **Try fictional demo** mode:
-click **Generate demo report** to explore all six report tabs with the built-in sample.
-No recording is needed and this mode makes no Gemini requests. To process your own
-recording, choose **Upload audio** and configure a Gemini key.
+Open http://localhost:8501. Without a key, select **Try fictional demo**, then **Generate demo report**. The demo uses a canned Hindi/Bhojpuri transcript, ignores the silent placeholder audio and makes no API calls.
 
-Edit the report and correction notes, then confirm that you have reviewed the draft
-to enable report downloads. Editing again resets that confirmation. A failed new
-generation preserves the previous report and your edits. **Start new report** clears
-the recording, report, review and case details from the current app session.
+## Groq Console setup
 
-### Streamlit Community Cloud (demo hosting)
+1. Create a server-side API key at [Groq Console → API Keys](https://console.groq.com/keys).
+2. Set `GROQ_API_KEY` in your local `.env` or in Streamlit Cloud's **Settings → Secrets**.
+3. Ensure your Groq project permits `whisper-large-v3` and `openai/gpt-oss-120b` in its [model permissions](https://console.groq.com/settings/project/limits).
+4. Choose **Upload audio → Groq Whisper — multilingual transcription**.
+5. Open **Groq connection and model settings** and click **Test Groq connection**. This tests a short structured request to the report model; it does not test transcription.
+6. Upload a short, non-sensitive WAV/MP3 and generate, review and export the draft.
 
-Select this repository, branch and `app.py` as the entry point. Configure Python 3.12.
-For Gemini, add this in the app's server-side **Secrets** settings:
+For Streamlit Secrets:
 
 ```toml
-GEMINI_API_KEY = "your-key-here"
+GROQ_API_KEY = "your-groq-key-here"
 ```
 
-Locally, the same entry can go in `.streamlit/secrets.toml` (git-ignored). An environment
-or `.env` key takes priority. The app never stores the key in report/session data.
-Without a key, the fictional demo remains usable. Any shared deployment is for
-non-sensitive demos only: this MVP still has no authentication or access control.
+For a local `.env`:
 
-### Docker (local demo)
-
-```bash
-docker build -t police-documentation-ai .
-docker run --rm -p 127.0.0.1:8501:8501 --env-file .env police-documentation-ai
+```dotenv
+GROQ_API_KEY=your-groq-key-here
 ```
 
-Omit `--env-file .env` for the offline demo. The container runs as a non-root user,
-excludes secrets and recordings from its build context, and includes a health check.
-The Docker image has not been built in the development environment; the Python app
-and its health endpoint have been tested directly.
+Keep the real key out of Git and chat messages. `.env` and `.streamlit/secrets.toml` are git-ignored. Keys are read server-side and are never copied into report/session data or exports.
 
-### Persistent Gemini errors
+Optional model overrides, supported in either environment variables or Streamlit Secrets:
 
-Open **Gemini connection and model settings** under **Upload audio** to see the
-configured models and run a text-only connection check. A successful check confirms
-that the report model can answer text; it does not verify Files API or transcription.
-Errors identify audio upload/processing versus model generation and show HTTP status
-without printing Google's raw response, credentials or recording contents.
+| Setting | Default | Supported alternative |
+|---|---|---|
+| `GROQ_TRANSCRIPTION_MODEL` | `whisper-large-v3` | `whisper-large-v3-turbo` |
+| `GROQ_REPORT_MODEL` | `openai/gpt-oss-120b` | `openai/gpt-oss-20b` |
 
-The official SDK already retries transient errors with exponential backoff. After
-those retries exhaust, prompted transcription and report generation each try the
-configured Flash fallback once for HTTP 500/502/503, keeping the same prompts and
-JSON schemas. Invalid requests, key/access errors, quota failures, blocked/invalid
-output and upload failures do not trigger a model fallback. Dedicated ASR keeps its
-own model; select **Gemini Flash — prompted** if ASR is unavailable. The actual
-transcription and report models appear in the **METADATA** tab.
+Environment values take priority. Reboot after changing deployment settings. Incompatible models are rejected before an API call; GPT-OSS is selected because it supports strict JSON-schema output.
 
-If the default Flash model keeps failing, set these in Streamlit Secrets (keep your
-existing `GEMINI_API_KEY` entry), save, and reboot the app:
+## Deploy on Streamlit Community Cloud
 
-```toml
-GEMINI_TRANSCRIPTION_MODEL = "gemini-3.7-flash"
-GEMINI_REPORT_MODEL = "gemini-3.7-flash"
-```
+Select this GitHub repository, branch **app-readiness**, entry point **app.py**, and Python **3.12**. Add `GROQ_API_KEY` in the app's server-side Secrets settings, save and reboot.
 
-Test again using a short, non-sensitive recording. Set `GEMINI_FALLBACK_MODEL = ""`
-to disable automatic fallback. An alternative model can also be unavailable or
-inaccessible; the app cannot resolve an outage or a missing model entitlement.
+Existing `GEMINI_API_KEY` and `GEMINI_*` model settings can be removed. They do not enable Groq. Dependencies now install the official `groq` SDK instead of `google-genai`.
 
-## Testing
+The local server binds to localhost. Streamlit telemetry is disabled. Shared deployments are suitable only for non-sensitive demos while authentication and production controls are absent.
+
+## Models and audio limits
+
+Models and request formats were checked against official Groq documentation on **2026-10-07**; see [Groq API research](docs/GROQ_API_RESEARCH.md).
+
+| Stage | API/model | Behavior |
+|---|---|---|
+| Transcription | Groq `/audio/transcriptions`, `whisper-large-v3` | Original-language text and optional real segment offsets |
+| Report | Groq `/chat/completions`, `openai/gpt-oss-120b` | Strict JSON schema, Pydantic validation and conservative guardrails |
+| Offline demo | Local fixtures | Fictional transcript and report; no API requests |
+
+- Maximum direct upload: **25 MB**, with a conservative 25,000,000-byte app cap. No automatic compression, chunking or URL uploads.
+- Formats: MP3, WAV, M4A, MP4, MPEG, MPGA, WEBM, FLAC, OGG. Only the first audio track is transcribed for files with multiple tracks.
+- WAV duration is detected locally; other containers show **Unavailable** rather than an estimate.
+- **Segment timestamps** can be disabled. Offsets are supplied by speech recognition, not guessed by the report model.
+- **Speaker diarization is unavailable** in this Whisper integration. Attribution stays unknown unless the transcript explicitly identifies it.
+- The multilingual transcription endpoint is used, not the English translation endpoint. Language detection stays automatic for mixed speech.
+- A compact Hindi spelling/context hint is supplied. Whisper prompts guide context/style; they cannot enforce chat-style instructions or guarantee verbatim Bhojpuri.
+- Hindi/Bhojpuri accuracy has not been measured. Review names, numbers, dialect wording and mixed-language speech against the audio.
+
+Groq offers a free plan with request, token and audio quotas. Exact limits belong to the organization and can be checked in [Groq Console → Limits](https://console.groq.com/settings/limits). Large transcripts may exceed free-plan token limits despite fitting the upload size cap. Start with a short recording.
+
+**No live API key was available during implementation.** Automated tests use a mock HTTP transport with the actual Groq SDK; live transcription and language accuracy still need verification with your deployment/key.
+
+## Review and exports
+
+The six tabs show **REPORT**, **TRANSCRIPT**, **TIMELINE**, **STATEMENTS**, **EVIDENCE** and **METADATA**. Metadata records the transcription and report models. The complete raw transcript is shown and downloadable independently of the report.
+
+Edit the report and officer correction notes, then confirm review to enable Markdown, TXT, DOCX and PDF downloads. Editing again clears the confirmation. A failed new request preserves the previous report and edits. **Start new report** resets the recording, metadata, report and review in the current session.
+
+DOCX supports Hindi text. PDF export is refused for Devanagari because the current ReportLab implementation cannot shape it correctly; use DOCX instead.
+
+## Accuracy and integrity
+
+After generation, code validates the schema, verifies source quotes against the raw transcript, removes unsupported timestamps, preserves allegation attribution, reclassifies hedged facts as belief/hearsay and flags guilt/lying/confession wording. Malformed analysis gets one guided retry, then a controlled failure. Partial, empty or refused Groq reports are not accepted. These are conservative heuristics, not substitutes for human review.
+
+SHA-256 and the recording ID identify uploaded bytes and help detect later changes. They do not prove who recorded the file, when it was recorded or whether it was changed before upload.
+
+## Privacy and failures
+
+Audio is uploaded directly to Groq for transcription; transcript text is sent to Groq for report generation. No Google Files API or remote file store is used by this app. Temporary local audio files are removed on success and failure. Uploads and results remain in the active Streamlit session until reset/session end.
+
+Groq documents limited retention for reliability/abuse monitoring and configurable data controls, including Zero Data Retention. Review [Groq's data policy](https://console.groq.com/docs/your-data) and your organization settings before sensitive use. The provider switch does not make this MVP production-ready.
+
+The SDK retries transient failures twice with backoff. UI errors identify transcription versus report generation and include HTTP status; app logs record only exception type/status, never raw API responses or recording text. API keys are not logged or exported.
+
+- **401:** check `GROQ_API_KEY`.
+- **403/404:** check project model permissions and configured IDs.
+- **429:** check Console quotas, wait before retrying, or use shorter audio.
+- **400/413/422:** check format, request size/model settings; test a small valid WAV/MP3.
+- **5xx/timeouts:** retry later with short audio. Moving providers cannot guarantee service availability.
+
+## Development and Docker
 
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-Tests never call the real Gemini API; the Gemini layer is mocked.
-The suite includes Streamlit AppTest coverage for demo generation, review/download
-state, reset, and preserving an edited report after a failed request. GitHub Actions
-runs these checks on pushes and pull requests.
+Tests exercise the offline UI, officer review and exports, raw transcript/timestamp handling, actual SDK multipart/strict JSON request formats through a mock transport, retry/error paths, secret resolution and cleanup. They never call a live provider. GitHub Actions runs the suite on pushes and pull requests.
 
-## Supported audio formats
+```bash
+docker build -t police-documentation-ai .
+docker run --rm -p 127.0.0.1:8501:8501 --env-file .env police-documentation-ai
+```
 
-MP3, WAV, M4A, MP4, MPEG, WEBM. Maximum upload: 200 MB (`config.MAX_UPLOAD_MB`).
-Duration is displayed for WAV only; other containers show "Unavailable" rather than a guess.
-`.mp4` is sent to Gemini as `video/mp4`, and extraction of the audio track is not verified by this
-project; convert to WAV/MP3/M4A if it fails.
+Omit `--env-file .env` for the demo. Docker uses a non-root user and excludes secrets, recordings and tests. Docker has not been built in the development environment.
 
-## Transcription engines
-
-| Engine | Model | Strengths | Limits |
-|---|---|---|---|
-| **Prompted** (default) | `gemini-3.8-flash` | Carries the Hindi/Bhojpuri/code-switching instructions | Speaker labels and times are model-written text, shown as *model-reported (unverified)* |
-| **Dedicated ASR** | `gemini-3.5-transcribe` | Real diarization (≤ 8 speakers) and word offsets | **Bhojpuri not in its language list; accepts no instructions**; ≤ 30 min with timestamps/speakers; timestamps lower accuracy |
-| **Mock** | none | Local demo, no key | Fictional transcript only |
-
-## Hindi / Bhojpuri considerations
-
-* Hindi is a documented language of Gemini's speech model. **Bhojpuri is not documented as
-  supported**, and Hindi–Bhojpuri mixing is not documented at all.
-* The prompt tells the model to keep Bhojpuri as spoken, not translate, not "standardise" it into
-  Hindi, and to mark unclear words. A prompt cannot guarantee this. Expect some Bhojpuri to be
-  rendered Hindi-like or mis-heard.
-* Every report carries a language-uncertainty note. **Have a Bhojpuri speaker check the raw
-  transcript** before the report is relied on.
-* The raw transcript is shown and downloadable (`transcript.txt`) separately from the report and
-  is never replaced by a summary. Neither engine guarantees a strictly verbatim transcript.
-
-## How accuracy rules are enforced
-
-Prompts alone are not trusted. After the model answers, code:
-
-* validates the JSON against Pydantic schemas (one guided retry, then a controlled error);
-* **removes every timestamp** if the transcript has none, and never invents speakers;
-* **verifies each source quote** against the raw transcript and flags unverifiable ones;
-* **re-classifies hedged "facts"** (e.g. *मुझे लगता है कि राहुल वहाँ था* / *I think…* / hearsay
-  markers) as belief or hearsay, and always prints allegations as "*X alleged that …*";
-* flags guilt/lying/confession language for the officer.
-
-These are conservative heuristics, not a substitute for human review.
-
-## Privacy
-
-* When Gemini is used, **audio and transcript text are sent to Google's Gemini API**.
-* On the Gemini API **free tier, Google may use submitted content to improve its products**; the
-  paid tier does not. Do not process real case material with a free-tier key.
-* Recordings are never stored permanently. They exist in memory and in a temporary file only for
-  the duration of processing; the temp file is deleted afterwards, as is the copy uploaded to
-  Google's Files API (otherwise retained 48 h).
-* No analytics, telemetry or advertising. Transcript contents and secrets are never logged; logs
-  contain only exception class names.
-* Exports never include API keys, secrets or debug data.
-
-## Security limitations
-
-This MVP is **not** production-ready for real police evidence. Production would need, among other
-things: security review, legal review, departmental approval, privacy/data-processing review,
-authentication, authorization, encryption (in transit and at rest), audit logging, retention
-policies, secure deployment, and chain-of-custody controls. There is no login, no access control
-and no audit trail here; anyone who can reach the app can use it.
-
-PDF export is refused for reports containing Devanagari because ReportLab cannot shape Hindi
-correctly; use DOCX.
-
-## SHA-256 limitation
-
-The SHA-256 hash and Recording ID identify the uploaded file and help detect later changes to it.
-They are an **integrity identifier, not chain of custody**. They do not prove who recorded the
-audio, when, on which device, or that the file was unaltered before upload.
-
-## Replacing Gemini with Whisper / faster-whisper
-
-Report generation depends only on `TranscriptResult` (`transcription/base.py`). To swap engines:
-
-1. Create `transcription/whisper_transcriber.py` with a class that subclasses `Transcriber` and
-   implements `transcribe(audio_path, mime_type, options) -> TranscriptResult`. Fill `segments`
-   with real `start_time`/`end_time` from Whisper, leave `speaker` as `None` unless you add
-   diarization, and set `timestamp_source="asr_word_offsets"` only for genuine offsets.
-2. Register it in `pipeline.build_engines` and add a label in `config.ENGINE_LABELS`.
-
-Nothing in `documentation/`, `export/` or `ui/` needs to change. For fully local processing also
-replace `GeminiReportClient` (`documentation/clients.py`) with any class that implements
-`generate_json(system_instruction, prompt, schema) -> str`.
-
-## Future architecture
-
-Authentication and role-based access · encrypted storage · case management · timestamp-linked
-playback (the schema already carries `start_time`/`end_time`/`quote` per item, ready to seek the
-player) · mandatory human review workflow · tamper-evident audit trails · secure deployment ·
-departmental system integrations · retention and disposal policies.
+| Directory | Responsibility |
+|---|---|
+| `transcription/` | Transcript interface, Groq Whisper and local mock |
+| `documentation/` | Report schemas, Groq client, validation, guardrails and rendering |
+| `integrity/` | Recording ID, SHA-256 and processing metadata |
+| `export/` | Markdown, TXT, DOCX and PDF exports |
+| `ui/` | Streamlit presentation and server-side settings |
+| `utils/` | Audio validation/temp files and Groq helpers |
+| `sample_data/` | Explicitly fictional offline fixtures |
+| `tests/` | Regression suite without live API credentials |

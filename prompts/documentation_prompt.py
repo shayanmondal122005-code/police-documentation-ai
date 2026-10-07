@@ -10,6 +10,8 @@ SOURCE OF TRUTH
   in their original language exactly as written. Do not translate quotes.
 - Lines may carry markers: "[n]" segment number, "[MM:SS–MM:SS]" times, and "Speaker:" labels.
   Speaker labels are anonymous. Never identify anyone from their voice.
+- If no speaker labels are available, use "Unknown speaker" for attribution unless the
+  transcript explicitly identifies who made the statement. Never assign voices to named people.
 
 SOURCE REFERENCES
 - Every extracted item has a "source". Put in "quote" an excerpt copied CHARACTER-FOR-CHARACTER
@@ -60,7 +62,9 @@ SECTIONS
   uncertainty notes. Never silently resolve uncertainty.
 - detected_metadata: date, time, location ONLY if explicitly stated in the recording, else null.
 
-Return JSON matching the provided schema and nothing else.
+Return every required JSON field and nothing else. Use null for unavailable nullable values,
+empty lists for missing collections, and the stated unknown labels for unnamed people/speakers.
+Never invent content to satisfy a required field.
 """
 
 

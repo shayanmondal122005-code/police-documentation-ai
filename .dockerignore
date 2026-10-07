@@ -14,3 +14,7 @@ tests
 *.mpeg
 *.webm
 *.log
+
+*.flac
+*.ogg
+*.mpga

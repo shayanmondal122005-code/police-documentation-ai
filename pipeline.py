@@ -7,26 +7,24 @@ from __future__ import annotations
 
 import io
 import wave
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from config import ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES, ENGINE_ASR, ENGINE_MOCK, ENGINE_PROMPTED, GeminiModels, get_api_key
-from documentation.clients import GeminiReportClient, MockReportClient, ReportModelClient
+from config import ENGINE_GROQ, ENGINE_MOCK, GroqModels, get_api_key
+from documentation.clients import GroqReportClient, MockReportClient, ReportModelClient
 from documentation.render import report_to_markdown
 from documentation.report_generator import generate_report
 from documentation.schemas import PoliceReport
 from errors import ConfigurationError, NoSpeechError
 from integrity.hashing import RecordingIntegrity, build_integrity
 from transcription.base import Transcriber, TranscriptionOptions, TranscriptResult
-from transcription.gemini_transcriber import GeminiASRTranscriber, GeminiPromptedTranscriber
+from transcription.groq_transcriber import GroqWhisperTranscriber
 from transcription.mock_transcriber import MockTranscriber
 from utils.audio import detect_duration_seconds, format_duration, get_extension, temporary_audio_file, validate_upload
-from utils.gemini import create_client
+from utils.groq import close_client, create_client, validate_models
 
 ProgressCallback = Callable[[str], None]
-logger = logging.getLogger(__name__)
 
 STEP_UPLOADED = "Recording uploaded"
 STEP_PROCESSED = "Audio processed"
@@ -59,24 +57,22 @@ class PipelineResult:
 
 
 def build_engines(engine: str, api_key: str | None = None,
-                  models: GeminiModels | None = None) -> tuple[Transcriber, ReportModelClient]:
+                  models: GroqModels | None = None) -> tuple[Transcriber, ReportModelClient]:
     """Return the (transcriber, report client) pair for an engine key."""
     if engine == ENGINE_MOCK:
         return MockTranscriber(), MockReportClient()
-    if engine not in (ENGINE_ASR, ENGINE_PROMPTED):
+    if engine != ENGINE_GROQ:
         raise ConfigurationError(f"Unknown transcription engine: {engine}")
     api_key = api_key or get_api_key()
     if not api_key:
         raise ConfigurationError(
-            "No Gemini API key found. Add GEMINI_API_KEY to your .env file (see .env.example), "
+            "No Groq API key found. Add GROQ_API_KEY to .env or Streamlit Secrets (see .env.example), "
             "or choose the Mock engine to try the app without an API key."
         )
+    models = models or GroqModels()
+    validate_models(models)
     client = create_client(api_key)
-    models = models or GeminiModels()
-    report_client = GeminiReportClient(client=client, model=models.report, fallback_model=models.fallback)
-    if engine == ENGINE_ASR:
-        return GeminiASRTranscriber(client=client, model=models.asr), report_client
-    return GeminiPromptedTranscriber(client=client, model=models.prompted, fallback_model=models.fallback), report_client
+    return GroqWhisperTranscriber(client=client, model=models.transcription), GroqReportClient(client=client, model=models.report)
 
 
 def demo_recording() -> tuple[str, bytes]:
@@ -106,20 +102,15 @@ def run_pipeline(
     metadata: ReportMetadata,
     progress: ProgressCallback | None = None,
     api_key: str | None = None,
-    models: GeminiModels | None = None,
+    models: GroqModels | None = None,
 ) -> PipelineResult:
     """Run the full pipeline. `progress` is called with a step name as each step completes."""
     notify = progress or (lambda _step: None)
 
     mime_type, integrity, duration = prepare_recording(filename, data)
-    if engine == ENGINE_ASR and (options.with_timestamps or options.with_speakers):
-        seconds = detect_duration_seconds(data, filename)
-        if seconds is not None and seconds > ASR_TIMESTAMP_DIARIZATION_MAX_MINUTES * 60:
-            raise ConfigurationError("This recording exceeds the 30-minute ASR limit. Turn off timestamps and speaker labels, or use the prompted engine.")
     transcriber, report_client = build_engines(engine, api_key, models)
-    notify(STEP_UPLOADED)
-
     try:
+        notify(STEP_UPLOADED)
         with temporary_audio_file(data, get_extension(filename)) as audio_path:
             notify(STEP_PROCESSED)
             transcript = _transcribe(transcriber, audio_path, mime_type, options)
@@ -140,10 +131,7 @@ def run_pipeline(
         # Both engines share one request-scoped client; never keep connections alive across reports.
         client = getattr(report_client, "_client", None)
         if client is not None:
-            try:
-                client.close()
-            except Exception as exc:
-                logger.warning("Could not close Gemini client: %s", type(exc).__name__)
+            close_client(client)
     notify(STEP_ANALYSED)
     notify(STEP_TIMELINE)
     markdown = report_to_markdown(report)

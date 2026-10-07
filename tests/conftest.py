@@ -1,4 +1,4 @@
-"""Shared fixtures. No test here calls the real Gemini API."""
+"""Shared fixtures. No test here calls the real Groq API."""
 
 from __future__ import annotations
 

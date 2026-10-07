@@ -1,6 +1,6 @@
 """Engine-independent transcription interface and result model.
 
-Any speech-to-text engine (Gemini, Whisper, faster-whisper, ...) can be plugged in
+Any speech-to-text engine (Groq Whisper, faster-whisper, ...) can be plugged in
 by subclassing `Transcriber`. The report-generation layer only sees `TranscriptResult`.
 """
 
@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-TimestampSource = Literal["none", "asr_word_offsets", "model_reported"]
+TimestampSource = Literal["none", "asr_segment_offsets", "asr_word_offsets", "model_reported"]
 
 
 class TranscriptSegment(BaseModel):
