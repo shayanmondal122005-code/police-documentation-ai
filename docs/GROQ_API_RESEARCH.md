@@ -41,11 +41,13 @@ Groq requires all object properties in `required` and `additionalProperties: fal
 
 The prompt instructs empty collections, null unavailable values and unknown attribution, avoiding invented content merely to fill required fields. Strict syntax does not guarantee factual accuracy, so the existing source-quote and allegation/uncertainty guardrails remain in force.
 
+Recognized HTTP 400 schema/JSON-format failures get one compatibility retry using `response_format={"type":"json_object"}` on the same model. The full schema is included in the system instruction. This mode guarantees JSON syntax, not schema adherence: local Pydantic validation and conservative guardrails remain mandatory. A failed local validation gets the existing guided retry in JSON mode; invalid, partial or refused reports are never accepted. Provider `failed_generation` data is never used. Unknown 400 errors, token/context limits, account/access restrictions and content-policy failures do not trigger format recovery. The successful output mode is recorded in report metadata.
+
 ## Free-plan and failure behavior
 
 The docs list free-plan quotas for both selected models. As checked, GPT-OSS 120B/20B have 8K TPM and Whisper models have 7.2K audio seconds/hour and 28.8K/day, with request/day limits as well. Exact organization limits can differ; Console is authoritative. A long report can exceed TPM even if the audio file fits 25 MB. The app does not claim unlimited free processing or automatically upgrade a plan.
 
-The official SDK retries connection errors, 408/409/429 and server errors twice by default. The app explicitly keeps `max_retries=2` and sets a 180-second timeout with a 20-second connect timeout. It adds no infinite retry loop or quota-bypassing fallback. Safe errors preserve stage/status but never display raw response bodies, keys, audio or transcript text.
+The official SDK retries connection errors, 408/409/429 and server errors twice by default. The app explicitly keeps `max_retries=2` and sets a 180-second timeout with a 20-second connect timeout. It adds no infinite retry loop or quota-bypassing fallback. Safe errors preserve stage/status and fixed categories but never display raw response bodies, keys, audio or transcript text. Report request-size errors refer to text/token limits; only transcription errors suggest changing audio format.
 
 ## Data handling and verification limits
 
@@ -53,4 +55,4 @@ Audio is sent directly to Groq in a request; no remote Files API/store is used. 
 
 Groq states that customer inference data is not retained by default, except features requiring retention or reliability/abuse monitoring; the latter may retain data for up to 30 days, subject to data controls and legal requirements. Zero Data Retention can be enabled in the organization settings. Usage metadata is retained. The app's notice now identifies Groq as the provider; this is not an approval for real police evidence.
 
-**No live key was available.** Tests run the actual SDK through an in-memory HTTP transport and verify requests, retries, parsing, strict schema adaptation, cleanup, exports and the Streamlit review UI. The connection button sends a short structured report-model probe only when clicked; a successful probe does not verify audio transcription. A live short recording and Hindi/Bhojpuri accuracy review remain necessary.
+**No local live key was available.** Tests run the actual SDK through an in-memory HTTP transport and verify requests, format recovery, validation/refusal handling, safe error classification, parsing, strict schema adaptation, cleanup, exports and the Streamlit review UI. The connection button generates and locally validates a fictional report with the real report schema only when clicked; a successful probe does not verify audio transcription. A live short recording and Hindi/Bhojpuri accuracy review remain necessary.

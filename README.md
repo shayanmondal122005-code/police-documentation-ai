@@ -26,7 +26,7 @@ Open http://localhost:8501. Without a key, select **Try fictional demo**, then *
 2. Set `GROQ_API_KEY` in your local `.env` or in Streamlit Cloud's **Settings → Secrets**.
 3. Ensure your Groq project permits `whisper-large-v3` and `openai/gpt-oss-120b` in its [model permissions](https://console.groq.com/settings/project/limits).
 4. Choose **Upload audio → Groq Whisper — multilingual transcription**.
-5. Open **Groq connection and model settings** and click **Test Groq connection**. This tests a short structured request to the report model; it does not test transcription.
+5. Open **Groq connection and model settings** and click **Test Groq connection**. This generates and validates a report from fictional text with the full report schema; it does not test transcription.
 6. Upload a short, non-sensitive WAV/MP3 and generate, review and export the draft.
 
 For Streamlit Secrets:
@@ -67,7 +67,7 @@ Models and request formats were checked against official Groq documentation on *
 | Stage | API/model | Behavior |
 |---|---|---|
 | Transcription | Groq `/audio/transcriptions`, `whisper-large-v3` | Original-language text and optional real segment offsets |
-| Report | Groq `/chat/completions`, `openai/gpt-oss-120b` | Strict JSON schema, Pydantic validation and conservative guardrails |
+| Report | Groq `/chat/completions`, `openai/gpt-oss-120b` | Strict JSON schema with bounded JSON-mode recovery, Pydantic validation and conservative guardrails |
 | Offline demo | Local fixtures | Fictional transcript and report; no API requests |
 
 - Maximum direct upload: **25 MB**, with a conservative 25,000,000-byte app cap. No automatic compression, chunking or URL uploads.
@@ -103,12 +103,17 @@ Audio is uploaded directly to Groq for transcription; transcript text is sent to
 
 Groq documents limited retention for reliability/abuse monitoring and configurable data controls, including Zero Data Retention. Review [Groq's data policy](https://console.groq.com/docs/your-data) and your organization settings before sensitive use. The provider switch does not make this MVP production-ready.
 
-The SDK retries transient failures twice with backoff. UI errors identify transcription versus report generation and include HTTP status; app logs record only exception type/status, never raw API responses or recording text. API keys are not logged or exported.
+The SDK retries transient failures twice with backoff. A recognized HTTP 400 JSON-schema/format failure gets one retry on the same model using JSON object mode, with the full schema in the prompt. Local Pydantic validation and all guardrails still apply; failed generation text from API errors is never used. Subsequent validation retries stay in JSON mode. Other request failures, access/content-policy errors and limits do not trigger this recovery. The Metadata tab records which output mode succeeded.
+
+UI errors identify transcription versus report generation and include HTTP status. App logs record only exception type/status and fixed error categories, never raw API responses or recording text. API keys are not logged or exported.
 
 - **401:** check `GROQ_API_KEY`.
 - **403/404:** check project model permissions and configured IDs.
 - **429:** check Console quotas, wait before retrying, or use shorter audio.
-- **400/413/422:** check format, request size/model settings; test a small valid WAV/MP3.
+- **Report 400/422:** JSON format failures recover automatically when recognized. If recovery fails, check report-model settings and the safe error message; changing WAV/MP3 encoding will not fix a text-report request.
+- **Report 413/token limits:** shorten the recording and check Console token/context limits.
+- **Transcription 400/413/422:** check audio format, upload size and transcription-model settings; test a small valid WAV/MP3.
+- **Blocked API access:** check account/spend controls in Groq Console.
 - **5xx/timeouts:** retry later with short audio. Moving providers cannot guarantee service availability.
 
 ## Development and Docker

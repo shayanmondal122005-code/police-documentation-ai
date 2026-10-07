@@ -6,7 +6,6 @@ Never log raw API responses, credentials, audio or transcript text.
 from __future__ import annotations
 
 import logging
-import json
 from typing import Any
 
 import groq
@@ -65,11 +64,51 @@ def strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def request_error_kind(exc: Exception) -> str | None:
+    """Classify known request errors without exposing provider text or generated data.
+
+    The SDK may receive either a wrapped or flat error object. Messages are only
+    inspected for fixed signatures; neither messages nor arbitrary codes escape.
+    """
+    if not isinstance(exc, groq.APIStatusError) or exc.status_code not in (400, 413, 422):
+        return None
+    body = exc.body
+    if not isinstance(body, dict):
+        return None
+    error = body.get("error", body)
+    if not isinstance(error, dict):
+        return None
+    code = error.get("code")
+    message = error.get("message", "")
+    message = message.lower() if isinstance(message, str) else ""
+    # Account, size and policy failures must never trigger a format retry.
+    if code == "blocked_api_access":
+        return "account_limit"
+    if code in ("content_policy_violation", "content_filter", "permission_denied"):
+        return "policy"
+    if code in ("context_length_exceeded", "request_too_large", "tokens_limit_exceeded"):
+        return "text_limit"
+    if "tokens per minute" in message or "context length" in message or "maximum context" in message:
+        return "text_limit"
+    if code in ("json_validate_failed", "invalid_json_schema", "json_schema_invalid",
+                "schema_validation_failed", "unsupported_response_format"):
+        return "report_format"
+    if code in (None, "invalid_request_error") and (
+        error.get("param") in ("response_format", "response_format.json_schema", "response_format.json_schema.schema")
+        or (("json schema" in message or "json_schema" in message or "response_format" in message)
+            and any(word in message for word in ("invalid", "unsupported", "not supported", "failed to compile")))
+    ):
+        return "report_format"
+    return None
+
+
 def translate_error(exc: Exception, error_cls: type[UserFacingError], action: str) -> UserFacingError:
     if isinstance(exc, UserFacingError):
         return exc
     code = exc.status_code if isinstance(exc, groq.APIStatusError) else None
-    logger.error("%s failed: %s (HTTP %s)", action, type(exc).__name__, code or "n/a")
+    kind = request_error_kind(exc)
+    report_request = "report" in action.lower() or "connection check" in action.lower()
+    logger.error("%s failed: %s (HTTP %s; category %s)", action, type(exc).__name__, code or "n/a", kind or "unknown")
     if isinstance(exc, (groq.APITimeoutError, httpx.TimeoutException, TimeoutError)):
         return error_cls(f"{action} timed out. Retry with a shorter recording.")
     if isinstance(exc, (groq.APIConnectionError, httpx.TransportError, ConnectionError)):
@@ -83,12 +122,23 @@ def translate_error(exc: Exception, error_cls: type[UserFacingError], action: st
             message = "the configured Groq model is unavailable. Check model settings and permissions in Groq Console."
         elif code == 429:
             message = "Groq rate limit or quota reached. Check Console limits, wait before retrying, or use a shorter recording."
+        elif code in (400, 413, 422) and kind == "account_limit":
+            message = "Groq blocked API access because of an account limit. Check account/spend limits in Groq Console."
+        elif code in (400, 413, 422) and kind == "policy":
+            message = "Groq rejected the request under its access or content policy. No report was accepted."
+        elif code in (400, 413, 422) and (kind == "text_limit" or (code == 413 and report_request)):
+            message = "the report text or requested output exceeds Groq's token/context limit. Use a shorter recording and check Console token limits."
         elif code == 413:
             message = "the request is too large. Audio uploads must be under 25 MB; use a shorter recording."
         elif code in (408, 504):
             message = "Groq timed out. Retry with a shorter recording."
         elif code in (400, 422):
-            message = "Groq rejected the audio or request. Check model settings and try a short, valid WAV or MP3 recording."
+            if report_request and kind == "report_format":
+                message = "Groq rejected the report's JSON format. No report was accepted. Try again with a short recording."
+            elif report_request:
+                message = "Groq rejected the report request. Check report-model settings and Console limits. The failed step uses transcript text, not an audio upload."
+            else:
+                message = "Groq rejected the audio request. Check transcription-model settings and try a short, valid WAV or MP3 recording."
         elif code >= 500:
             message = "the Groq service is temporarily unavailable after retries. Try again later."
         else:
@@ -98,32 +148,21 @@ def translate_error(exc: Exception, error_cls: type[UserFacingError], action: st
 
 
 def check_model_connection(api_key: str, models: GroqModels) -> None:
-    """User-triggered text/JSON probe; audio is only tested by processing a recording."""
+    """Test the actual report schema with fictional text, never uploaded audio.
+
+    Import lazily because report clients also use this module's SDK helpers.
+    """
+    from documentation.clients import GroqReportClient
+    from documentation.report_generator import request_analysis
+    from transcription.base import TranscriptResult
+
     validate_models(models)
     client = create_client(api_key)
     try:
-        response = client.chat.completions.create(
-            model=models.report,
-            messages=[{"role": "user", "content": 'Return JSON with "ok" set to true.'}],
-            reasoning_effort="low",
-            max_completion_tokens=512,
-            response_format={"type": "json_schema", "json_schema": {
-                "name": "connection_check", "strict": True,
-                "schema": {"type": "object", "properties": {"ok": {"type": "boolean"}},
-                           "required": ["ok"], "additionalProperties": False},
-            }},
+        request_analysis(
+            TranscriptResult(raw_transcript="This is a fictional connection test. No incident is being reported."),
+            GroqReportClient(client=client, model=models.report),
         )
-        if not response.choices or not response.choices[0].message.content:
-            raise ConfigurationError("Groq returned no text. Audio transcription has not been tested.")
-        choice = response.choices[0]
-        if choice.finish_reason != "stop" or getattr(choice.message, "refusal", None):
-            raise ConfigurationError("Groq did not complete the connection check. Audio transcription has not been tested.")
-        try:
-            valid = json.loads(choice.message.content).get("ok") is True
-        except (ValueError, AttributeError):
-            valid = False
-        if not valid:
-            raise ConfigurationError("Groq did not return the expected check response. Audio transcription has not been tested.")
     except Exception as exc:
         raise translate_error(exc, ConfigurationError, "Groq connection check") from exc
     finally:

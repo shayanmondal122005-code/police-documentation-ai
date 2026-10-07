@@ -11,8 +11,9 @@ from streamlit.testing.v1 import AppTest
 
 from config import MAX_UPLOAD_BYTES, GroqModels
 from documentation.clients import GroqReportClient
+from documentation.report_generator import request_analysis
 from documentation.schemas import ModelReport
-from errors import ConfigurationError, FileTooLargeError, ReportGenerationError, TranscriptionError
+from errors import ConfigurationError, FileTooLargeError, ReportGenerationError, ReportValidationError, TranscriptionError
 from pipeline import ReportMetadata, demo_recording, run_pipeline
 from tests.test_app_readiness import ROOT
 from tests.test_transcription import whisper_response
@@ -189,19 +190,121 @@ def test_gemini_key_does_not_enable_groq(monkeypatch):
     assert settings.app_api_key() is None
 
 
-def test_connection_check_uses_strict_json_and_closes_client(monkeypatch):
+def test_connection_check_uses_full_report_schema_and_closes_client(monkeypatch, mock_analysis_json):
     requests = []
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(200, json=completion('{"ok":true}'))
+        return httpx.Response(200, json=completion(mock_analysis_json))
 
     client = sdk_client(handler)
     monkeypatch.setattr("utils.groq.create_client", lambda key: client)
     check_model_connection("test", GroqModels())
     assert len(requests) == 1 and client.is_closed()
     assert requests[0].url.path.endswith("/chat/completions")
-    assert json.loads(requests[0].content)["response_format"]["json_schema"]["strict"] is True
+    sent = json.loads(requests[0].content)
+    assert sent["response_format"]["json_schema"]["strict"] is True
+    assert sent["response_format"]["json_schema"]["schema"] == strict_schema(ModelReport.model_json_schema())
+    assert "fictional connection test" in sent["messages"][1]["content"]
+
+
+@pytest.mark.parametrize("error", [
+    {"code": "json_validate_failed", "failed_generation": "PRIVATE-FAILED-REPORT"},
+    {"code": "invalid_json_schema"},
+    {"code": "invalid_request_error", "param": "response_format"},
+    {"message": "Invalid JSON schema for response_format: PRIVATE-SCHEMA"},
+])
+def test_report_schema_rejection_recovers_with_validated_json_mode(error, mock_analysis_json, mock_transcript, caplog):
+    requests = []
+
+    def handler(request):
+        sent = json.loads(request.content)
+        requests.append(sent)
+        if len(requests) == 1:
+            return httpx.Response(400, json={"error": error})
+        assert sent["response_format"] == {"type": "json_object"}
+        assert sent["messages"][1] == requests[0]["messages"][1]
+        assert sent["model"] == requests[0]["model"]
+        assert json.dumps(strict_schema(ModelReport.model_json_schema()), ensure_ascii=False, separators=(",", ":")) in sent["messages"][0]["content"]
+        assert "PRIVATE-FAILED-REPORT" not in request.content.decode()
+        return httpx.Response(200, json=completion(mock_analysis_json))
+
+    with sdk_client(handler) as sdk:
+        client = GroqReportClient(sdk)
+        analysis = request_analysis(mock_transcript, client)
+    assert analysis.executive_summary
+    assert len(requests) == 2 and client.actual_format == "json_object"
+    assert "PRIVATE" not in caplog.text
+
+
+def test_invalid_json_recovery_is_bounded_and_never_accepted(mock_transcript):
+    formats = []
+
+    def handler(request):
+        formats.append(json.loads(request.content)["response_format"]["type"])
+        if len(formats) == 1:
+            return httpx.Response(400, json={"error": {"code": "json_validate_failed"}})
+        return httpx.Response(200, json=completion('{"timeline": [{"order": 0}]}'))
+
+    with sdk_client(handler) as sdk:
+        with pytest.raises(ReportValidationError, match="No report was produced"):
+            request_analysis(mock_transcript, GroqReportClient(sdk))
+    assert formats == ["json_schema", "json_object", "json_object"]
+
+
+def test_second_format_failure_does_not_loop_or_leak(caplog):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(400, json={"error": {"code": "json_validate_failed", "message": "PRIVATE-KEY", "failed_generation": "PRIVATE-REPORT"}})
+
+    with sdk_client(handler) as sdk:
+        with pytest.raises(ReportGenerationError, match="JSON format") as error:
+            GroqReportClient(sdk).generate_json("system", "prompt", ModelReport.model_json_schema())
+    assert len(requests) == 2
+    assert "PRIVATE" not in str(error.value) + caplog.text
+
+
+@pytest.mark.parametrize("status,error,expected", [
+    (400, {"code": "blocked_api_access", "param": "response_format"}, "account limit"),
+    (400, {"code": "context_length_exceeded", "param": "response_format"}, "token/context limit"),
+    (400, {"code": "content_policy_violation", "param": "response_format"}, "content policy"),
+    (400, {"code": "invalid_request_error", "param": "model"}, "report request"),
+    (400, {"code": "PRIVATE-UNKNOWN", "message": "PRIVATE-KEY-TRANSCRIPT"}, "report request"),
+    (413, {"message": "Request too large"}, "token/context limit"),
+    (401, {"code": "json_validate_failed"}, "key was rejected"),
+    (429, {"code": "json_validate_failed"}, "rate limit"),
+])
+def test_nonformat_errors_never_trigger_compatibility_retry(status, error, expected, caplog):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(status, json={"error": error})
+
+    with sdk_client(handler) as sdk:
+        with pytest.raises(ReportGenerationError, match=expected) as caught:
+            GroqReportClient(sdk).generate_json("system", "prompt", ModelReport.model_json_schema())
+    assert len(requests) == 1
+    assert "WAV" not in str(caught.value)
+    assert "PRIVATE" not in str(caught.value) + caplog.text
+
+
+@pytest.mark.parametrize("finish,refusal,expected", [("length", None, "output limit"), ("content_filter", None, "declined"), ("stop", "PRIVATE", "declined")])
+def test_json_recovery_rejects_partial_or_refused_output(finish, refusal, expected):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(400, json={"error": {"code": "json_validate_failed"}})
+        return httpx.Response(200, json=completion("{}", finish, refusal))
+
+    with sdk_client(handler) as sdk:
+        with pytest.raises(ReportGenerationError, match=expected):
+            GroqReportClient(sdk).generate_json("system", "prompt", ModelReport.model_json_schema())
+    assert len(calls) == 2
 
 
 def test_ui_connection_check_only_runs_on_click_and_has_no_speaker_option(monkeypatch):

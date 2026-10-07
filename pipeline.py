@@ -54,6 +54,7 @@ class PipelineResult:
     report: PoliceReport
     markdown: str
     report_model: str | None = None
+    report_format: str | None = None
 
 
 def build_engines(engine: str, api_key: str | None = None,
@@ -137,7 +138,8 @@ def run_pipeline(
     markdown = report_to_markdown(report)
     notify(STEP_DOCUMENTED)
     return PipelineResult(integrity, duration, transcript, report, markdown,
-                          report_model=getattr(report_client, "actual_model", None))
+                          report_model=getattr(report_client, "actual_model", None),
+                          report_format=getattr(report_client, "actual_format", None))
 
 
 def _transcribe(

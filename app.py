@@ -79,12 +79,12 @@ def engine_options() -> tuple[str, TranscriptionOptions]:
             models = app_models()
             st.write(f"Transcription: {models.transcription}. Report: {models.report}.")
             st.caption("Optional overrides: GROQ_TRANSCRIPTION_MODEL and GROQ_REPORT_MODEL. Groq Console controls model access and API limits.")
-            st.caption("This check sends a short text/JSON request to the report model. Audio transcription needs a recording test.")
+            st.caption("This check generates and validates a report from fictional text using the full report schema. Audio transcription needs a recording test.")
             if st.button("Test Groq connection", disabled=not key, key="check_groq"):
                 try:
                     with st.spinner("Checking Groq…"):
                         check_model_connection(key, models)
-                    st.success("Groq answered the report-model request. Audio transcription has not been tested.")
+                    st.success("Groq generated and validated a fictional report. Audio transcription has not been tested.")
                 except UserFacingError as exc:
                     st.error(exc.user_message)
                 except Exception as exc:
@@ -226,6 +226,7 @@ def metadata_tab(result: PipelineResult) -> None:
     st.markdown(
         f"- **Engine:** {meta.engine}\n- **Transcription model:** {meta.model or 'n/a (local mock)'}\n"
         f"- **Report model:** {result.report_model or 'n/a (local mock)'}\n"
+        f"- **Report output:** {'JSON compatibility mode + local validation' if result.report_format == 'json_object' else 'Strict JSON schema + local validation' if result.report_format == 'json_schema' else 'n/a (local mock)'}\n"
         f"- **Timestamp source:** {meta.timestamp_source}\n- **Speaker labels available:** {meta.speakers_available}"
     )
 
